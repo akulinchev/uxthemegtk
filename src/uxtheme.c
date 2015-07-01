@@ -18,8 +18,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <wchar.h>
-
+#include <stdarg.h>
 #include <windef.h>
 #include <winbase.h>
 #include <wingdi.h>
@@ -61,7 +60,7 @@ typedef HRESULT (*get_part_size_func_t)(int part_id, int state_id,
 typedef BOOL (*is_part_defined_func_t)(int part_id, int state_id);
 
 typedef struct {
-    const wchar_t *classname;
+    const WCHAR *classname;
     init_func_t init;
     uninit_func_t uninit;
     get_color_func_t get_color;
@@ -172,7 +171,8 @@ static /* const */ theme_t themes[] = {
 #define MENU_HEIGHT 20
 #define CLASSLIST_MAXLEN 128
 #define PIXEL_SIZE 4 /* red + green + blue + alpha = 4 bytes */
-#define THEME_PROPERTY L"uxgtk_theme"
+
+const WCHAR THEME_PROPERTY[] = {'u','x','g','t','k','_','t','h','e','m','e',0};
 
 #define GDKRGBA_TO_COLORREF(rgba) RGB( \
     (int)(0.5 + CLAMP(rgba.red, 0.0, 1.0) * 255.0), \
@@ -207,9 +207,9 @@ static void fix_sys_params(void)
     SystemParametersInfoW(SPI_SETNONCLIENTMETRICS,
                           sizeof(metrics), &metrics, 0);
 
-    SystemParametersInfo(SPI_SETCLEARTYPE, 0, (LPVOID)TRUE, 0);
-    SystemParametersInfo(SPI_SETFONTSMOOTHING, 0, (LPVOID)TRUE, 0);
-    SystemParametersInfo(SPI_SETFLATMENU, 0, (LPVOID)TRUE, 0);
+    SystemParametersInfoW(SPI_SETCLEARTYPE, 0, (LPVOID)TRUE, 0);
+    SystemParametersInfoW(SPI_SETFONTSMOOTHING, 0, (LPVOID)TRUE, 0);
+    SystemParametersInfoW(SPI_SETFLATMENU, 0, (LPVOID)TRUE, 0);
 }
 
 static void init(void)
@@ -285,8 +285,7 @@ static void paint_cairo_surface(cairo_surface_t *surface, HDC target_hdc,
 
 static BOOL match_class(LPCWSTR classlist, LPCWSTR classname)
 {
-    const wchar_t *seps = L";";
-    wchar_t *last, *tok, buf[CLASSLIST_MAXLEN];
+    WCHAR *last, *tok, buf[CLASSLIST_MAXLEN];
 
     if (classlist == NULL || classname == NULL)
         return FALSE;
@@ -296,10 +295,22 @@ static BOOL match_class(LPCWSTR classlist, LPCWSTR classname)
     /* Ensure we have a null character at the end of buffer */
     buf[CLASSLIST_MAXLEN - 1] = L'\0';
 
-    for (tok = wcstok(buf, seps, &last); tok != NULL;
-         tok = wcstok(NULL, seps, &last))
-        if (lstrcmpiW(tok, classname) == 0)
+    last = buf;
+    for (tok = buf; *tok; tok++)
+    {
+        if (*tok != ';')
+            continue;
+
+        *tok = 0;
+
+        if (lstrcmpiW(last, classname) == 0)
             return TRUE;
+ 
+        last = tok;
+    }
+
+    if (last != tok && lstrcmpiW(last, classname) == 0)
+        return TRUE;
 
     return FALSE;
 }
