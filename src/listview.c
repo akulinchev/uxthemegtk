@@ -18,13 +18,10 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "listview.h"
+#include "uxthemegtk_internal.h"
 
 #include <vsstyle.h>
-
 #include <wine/debug.h>
-
-#include "listbox.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 

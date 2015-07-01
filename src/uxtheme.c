@@ -32,19 +32,7 @@
 
 #include <gtk/gtk.h>
 
-#include "button.h"
-#include "combobox.h"
-#include "edit.h"
-#include "header.h"
-#include "listbox.h"
-#include "listview.h"
-#include "menu.h"
-#include "rebar.h"
-#include "status.h"
-#include "tab.h"
-#include "toolbar.h"
-#include "trackbar.h"
-#include "window.h"
+#include "uxthemegtk_internal.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
