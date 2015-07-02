@@ -27,29 +27,29 @@ WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
 void uxgtk_rebar_init(GdkScreen *screen)
 {
+    TRACE("(%p)\n", screen);
     /* Do nothing */
 }
 
 void uxgtk_rebar_uninit(void)
 {
+    TRACE("()\n");
     /* Do nothing */
 }
 
-void uxgtk_rebar_draw_background(cairo_t *cr,
-                                 int part_id, int state_id,
-                                 int width, int height)
+void uxgtk_rebar_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
 {
-    if (part_id == 0) {
-        /* I have tryed to draw a "primary" toolbar, but it looks ugly */
+    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+
+    if (part_id)
+        FIXME("Unsupported rebar part %d.\n", part_id);
+    else
         uxgtk_window_draw_background(cr, WP_DIALOG, 0, width, height);
-    } else {
-        WINE_FIXME("Unsupported rebar part %d.\n", part_id);
-    }
+        /* I have tryed to draw a "primary" toolbar, but it looks ugly */
 }
 
 BOOL uxgtk_rebar_is_part_defined(int part_id, int state_id)
 {
-    return part_id == 0;
+    TRACE("(%d, %d)\n", part_id, state_id);
+    return !part_id;
 }
-
-/* vim: set expandtab tabstop=8 shiftwidth=4 softtabstop=4: */

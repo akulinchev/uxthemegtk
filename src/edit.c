@@ -31,27 +31,29 @@ static GtkStyleContext *context = NULL;
 
 static inline GtkStateFlags get_text_state_flags(int state_id)
 {
-    switch (state_id) {
-    case ETS_NORMAL:
-        return GTK_STATE_FLAG_NORMAL;
+    switch (state_id)
+    {
+        case ETS_NORMAL:
+            return GTK_STATE_FLAG_NORMAL;
 
-    case ETS_HOT:
-        return GTK_STATE_FLAG_PRELIGHT;
+        case ETS_HOT:
+            return GTK_STATE_FLAG_PRELIGHT;
 
-    case ETS_SELECTED:
-        return GTK_STATE_FLAG_SELECTED;
+        case ETS_SELECTED:
+            return GTK_STATE_FLAG_SELECTED;
 
-    case ETS_DISABLED:
-        return GTK_STATE_FLAG_INSENSITIVE;
+        case ETS_DISABLED:
+            return GTK_STATE_FLAG_INSENSITIVE;
 
-    case ETS_FOCUSED:
-        return GTK_STATE_FLAG_FOCUSED;
+        case ETS_FOCUSED:
+            return GTK_STATE_FLAG_FOCUSED;
 
-    case ETS_READONLY:
-        return GTK_STATE_FLAG_INSENSITIVE;
+        case ETS_READONLY:
+            return GTK_STATE_FLAG_INSENSITIVE;
 
-    default:
-        WINE_FIXME("Unknown edit text state %d.\n", state_id);
+        default:
+            FIXME("Unknown edit text state %d.\n", state_id);
+            break;
     }
 
     return GTK_STATE_FLAG_NORMAL;
@@ -69,8 +71,13 @@ static void draw_edit_text(cairo_t *cr, int state_id, int width, int height)
 
 void uxgtk_edit_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = pgtk_widget_path_new();
-    int pos = pgtk_widget_path_append_type(path, pgtk_entry_get_type());
+    GtkWidgetPath *path;
+    int pos;
+
+    TRACE("(%p)\n", screen);
+
+    path = pgtk_widget_path_new();
+    pos = pgtk_widget_path_append_type(path, pgtk_entry_get_type());
 
     pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_ENTRY);
 
@@ -81,50 +88,54 @@ void uxgtk_edit_init(GdkScreen *screen)
 
 void uxgtk_edit_uninit(void)
 {
+    TRACE("()\n");
     pg_object_unref(context);
 }
 
-HRESULT uxgtk_edit_get_color(int part_id, int state_id,
-                             int prop_id, GdkRGBA *rgba)
+HRESULT uxgtk_edit_get_color(int part_id, int state_id, int prop_id, GdkRGBA *rgba)
 {
     GtkStateFlags state = get_text_state_flags(state_id);
 
-    switch (prop_id) {
-    case TMT_FILLCOLOR:
-        pgtk_style_context_add_class(context, GTK_STYLE_CLASS_VIEW);
-        pgtk_style_context_get_background_color(context, state, rgba);
-        pgtk_style_context_remove_class(context, GTK_STYLE_CLASS_VIEW);
-        return S_OK;
+    TRACE("(%d, %d, %d, %p)\n", part_id, state_id, prop_id, rgba);
 
-    case TMT_TEXTCOLOR:
-        pgtk_style_context_get_color(context, state, rgba);
-        return S_OK;
+    switch (prop_id)
+    {
+        case TMT_FILLCOLOR:
+            pgtk_style_context_add_class(context, GTK_STYLE_CLASS_VIEW);
+            pgtk_style_context_get_background_color(context, state, rgba);
+            pgtk_style_context_remove_class(context, GTK_STYLE_CLASS_VIEW);
+            return S_OK;
 
-    default:
-        WINE_FIXME("Unsupported property %d.\n", prop_id);
+        case TMT_TEXTCOLOR:
+            pgtk_style_context_get_color(context, state, rgba);
+            return S_OK;
+
+        default:
+            FIXME("Unsupported property %d.\n", prop_id);
+            break;
     }
 
     return E_FAIL;
 }
 
-void uxgtk_edit_draw_background(cairo_t *cr,
-                                int part_id, int state_id,
-                                int width, int height)
+void uxgtk_edit_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
 {
+    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+
     pgtk_style_context_save(context);
 
     if (part_id == EP_EDITTEXT)
         draw_edit_text(cr, state_id, width, height);
     else
-        WINE_FIXME("Unsupported edit part %d.\n", part_id);
+        FIXME("Unsupported edit part %d.\n", part_id);
 
     pgtk_style_context_restore(context);
 }
 
 BOOL uxgtk_edit_is_part_defined(int part_id, int state_id)
 {
-    /* comstl32.dll uses only EP_EDITTEXT */
-    return part_id == EP_EDITTEXT && state_id < ETS_ASSIST;
-}
+    TRACE("(%d, %d)\n", part_id, state_id);
 
-/* vim: set expandtab tabstop=8 shiftwidth=4 softtabstop=4: */
+    /* comstl32.dll uses only EP_EDITTEXT */
+    return (part_id == EP_EDITTEXT && state_id < ETS_ASSIST);
+}

@@ -38,24 +38,26 @@ static GtkStyleContext *label_context = NULL;
 
 static inline GtkStateFlags get_push_button_state_flags(int state_id)
 {
-    switch (state_id) {
-    case PBS_NORMAL:
-        return GTK_STATE_FLAG_NORMAL;
+    switch (state_id)
+    {
+        case PBS_NORMAL:
+            return GTK_STATE_FLAG_NORMAL;
 
-    case PBS_HOT:
-        return GTK_STATE_FLAG_PRELIGHT;
+        case PBS_HOT:
+            return GTK_STATE_FLAG_PRELIGHT;
 
-    case PBS_PRESSED:
-        return GTK_STATE_FLAG_ACTIVE;
+        case PBS_PRESSED:
+            return GTK_STATE_FLAG_ACTIVE;
 
-    case PBS_DISABLED:
-        return GTK_STATE_FLAG_INSENSITIVE;
+        case PBS_DISABLED:
+            return GTK_STATE_FLAG_INSENSITIVE;
 
-    case PBS_DEFAULTED:
-        return GTK_STATE_FLAG_FOCUSED; /* TODO: GTK_STYLE_CLASS_DEFAULT */
+        case PBS_DEFAULTED:
+            return GTK_STATE_FLAG_FOCUSED; /* TODO: GTK_STYLE_CLASS_DEFAULT */
 
-    default:
-        WINE_FIXME("Unsupported push button state %d.\n", state_id);
+        default:
+            FIXME("Unsupported push button state %d.\n", state_id);
+            break;
     }
 
     return GTK_STATE_FLAG_NORMAL;
@@ -63,33 +65,35 @@ static inline GtkStateFlags get_push_button_state_flags(int state_id)
 
 static inline GtkStateFlags get_radio_button_state_flags(int state_id)
 {
-    switch (state_id) {
-    case RBS_UNCHECKEDNORMAL:
-        return GTK_STATE_FLAG_NORMAL;
+    switch (state_id)
+    {
+        case RBS_UNCHECKEDNORMAL:
+            return GTK_STATE_FLAG_NORMAL;
 
-    case RBS_UNCHECKEDHOT:
-        return GTK_STATE_FLAG_PRELIGHT;
+        case RBS_UNCHECKEDHOT:
+            return GTK_STATE_FLAG_PRELIGHT;
 
-    case RBS_UNCHECKEDPRESSED:
-        return GTK_STATE_FLAG_ACTIVE;
+        case RBS_UNCHECKEDPRESSED:
+            return GTK_STATE_FLAG_ACTIVE;
 
-    case RBS_UNCHECKEDDISABLED:
-        return GTK_STATE_FLAG_INSENSITIVE;
+        case RBS_UNCHECKEDDISABLED:
+            return GTK_STATE_FLAG_INSENSITIVE;
 
-    case RBS_CHECKEDNORMAL:
-        return GTK_STATE_FLAG_NORMAL | GTK_STATE_FLAG_ACTIVE;
+        case RBS_CHECKEDNORMAL:
+            return GTK_STATE_FLAG_NORMAL | GTK_STATE_FLAG_ACTIVE;
 
-    case RBS_CHECKEDHOT:
-        return GTK_STATE_FLAG_PRELIGHT | GTK_STATE_FLAG_ACTIVE;
+        case RBS_CHECKEDHOT:
+            return GTK_STATE_FLAG_PRELIGHT | GTK_STATE_FLAG_ACTIVE;
 
-    case RBS_CHECKEDPRESSED:
-        return GTK_STATE_FLAG_ACTIVE;
+        case RBS_CHECKEDPRESSED:
+            return GTK_STATE_FLAG_ACTIVE;
 
-    case RBS_CHECKEDDISABLED:
-        return GTK_STATE_FLAG_INSENSITIVE | GTK_STATE_FLAG_ACTIVE;
+        case RBS_CHECKEDDISABLED:
+            return GTK_STATE_FLAG_INSENSITIVE | GTK_STATE_FLAG_ACTIVE;
 
-    default:
-        WINE_FIXME("Unsupported radio button state %d.\n", state_id);
+        default:
+            FIXME("Unsupported radio button state %d.\n", state_id);
+            break;
     }
 
     return GTK_STATE_FLAG_NORMAL;
@@ -97,45 +101,47 @@ static inline GtkStateFlags get_radio_button_state_flags(int state_id)
 
 static inline GtkStateFlags get_checkbox_state_flags(int state_id)
 {
-    switch (state_id) {
-    case CBS_UNCHECKEDNORMAL:
-        return GTK_STATE_FLAG_NORMAL;
+    switch (state_id)
+    {
+        case CBS_UNCHECKEDNORMAL:
+            return GTK_STATE_FLAG_NORMAL;
 
-    case CBS_UNCHECKEDHOT:
-        return GTK_STATE_FLAG_PRELIGHT;
+        case CBS_UNCHECKEDHOT:
+            return GTK_STATE_FLAG_PRELIGHT;
 
-    case CBS_UNCHECKEDPRESSED:
-        return GTK_STATE_FLAG_SELECTED;
+        case CBS_UNCHECKEDPRESSED:
+            return GTK_STATE_FLAG_SELECTED;
 
-    case CBS_UNCHECKEDDISABLED:
-        return GTK_STATE_FLAG_INSENSITIVE;
+        case CBS_UNCHECKEDDISABLED:
+            return GTK_STATE_FLAG_INSENSITIVE;
 
-    case CBS_CHECKEDNORMAL:
-        return GTK_STATE_FLAG_NORMAL | GTK_STATE_FLAG_ACTIVE;
+        case CBS_CHECKEDNORMAL:
+            return GTK_STATE_FLAG_NORMAL | GTK_STATE_FLAG_ACTIVE;
 
-    case CBS_CHECKEDHOT:
-        return GTK_STATE_FLAG_PRELIGHT | GTK_STATE_FLAG_ACTIVE;
+        case CBS_CHECKEDHOT:
+            return GTK_STATE_FLAG_PRELIGHT | GTK_STATE_FLAG_ACTIVE;
 
-    case CBS_CHECKEDPRESSED:
-        return GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_ACTIVE;
+        case CBS_CHECKEDPRESSED:
+            return GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_ACTIVE;
 
-    case CBS_CHECKEDDISABLED:
-        return GTK_STATE_FLAG_INSENSITIVE | GTK_STATE_FLAG_ACTIVE;
+        case CBS_CHECKEDDISABLED:
+            return GTK_STATE_FLAG_INSENSITIVE | GTK_STATE_FLAG_ACTIVE;
 
-    case CBS_MIXEDNORMAL:
-        return GTK_STATE_FLAG_NORMAL | GTK_STATE_FLAG_INCONSISTENT;
+        case CBS_MIXEDNORMAL:
+            return GTK_STATE_FLAG_NORMAL | GTK_STATE_FLAG_INCONSISTENT;
 
-    case CBS_MIXEDHOT:
-        return GTK_STATE_FLAG_PRELIGHT | GTK_STATE_FLAG_INCONSISTENT;
+        case CBS_MIXEDHOT:
+            return GTK_STATE_FLAG_PRELIGHT | GTK_STATE_FLAG_INCONSISTENT;
 
-    case CBS_MIXEDPRESSED:
-        return GTK_STATE_FLAG_ACTIVE | GTK_STATE_FLAG_INCONSISTENT;
+        case CBS_MIXEDPRESSED:
+            return GTK_STATE_FLAG_ACTIVE | GTK_STATE_FLAG_INCONSISTENT;
 
-    case CBS_MIXEDDISABLED:
-        return GTK_STATE_FLAG_INSENSITIVE | GTK_STATE_FLAG_INCONSISTENT;
+        case CBS_MIXEDDISABLED:
+            return GTK_STATE_FLAG_INSENSITIVE | GTK_STATE_FLAG_INCONSISTENT;
 
-    default:
-        WINE_ERR("Unsupported checkbox state %d.\n", state_id);
+        default:
+            ERR("Unsupported checkbox state %d.\n", state_id);
+            break;
     }
 
     return GTK_STATE_FLAG_NORMAL;
@@ -143,15 +149,17 @@ static inline GtkStateFlags get_checkbox_state_flags(int state_id)
 
 static inline GtkStateFlags get_groupbox_state_flags(int state_id)
 {
-    switch (state_id) {
-    case GBS_NORMAL:
-        return GTK_STATE_FLAG_NORMAL;
+    switch (state_id)
+    {
+        case GBS_NORMAL:
+            return GTK_STATE_FLAG_NORMAL;
 
-    case GBS_DISABLED:
-        return GTK_STATE_FLAG_INSENSITIVE;
+        case GBS_DISABLED:
+            return GTK_STATE_FLAG_INSENSITIVE;
 
-    default:
-        WINE_FIXME("Unknown groupbox state %d.\n", state_id);
+        default:
+            FIXME("Unknown groupbox state %d.\n", state_id);
+            break;
     }
 
     return GTK_STATE_FLAG_NORMAL;
@@ -199,33 +207,35 @@ static void get_text_color(int part_id, int state_id, GdkRGBA *rgba)
 {
     GtkStateFlags state = 0;
 
-    switch (part_id) {
-    case BP_PUSHBUTTON:
-        state = get_push_button_state_flags(state_id);
-        /* GtkWindow.background GtkButton.button GtkLabel.label */
-        pgtk_style_context_set_parent(label_context, button_context);
-        break;
+    switch (part_id)
+    {
+        case BP_PUSHBUTTON:
+            state = get_push_button_state_flags(state_id);
+            /* GtkWindow.background GtkButton.button GtkLabel.label */
+            pgtk_style_context_set_parent(label_context, button_context);
+            break;
 
-    case BP_RADIOBUTTON:
-        state = get_radio_button_state_flags(state_id);
-        /* GtkWindow.background GtkRadioButton.radio GtkLabel.label */
-        pgtk_style_context_set_parent(label_context, radio_context);
-        break;
+        case BP_RADIOBUTTON:
+            state = get_radio_button_state_flags(state_id);
+            /* GtkWindow.background GtkRadioButton.radio GtkLabel.label */
+            pgtk_style_context_set_parent(label_context, radio_context);
+            break;
 
-    case BP_CHECKBOX:
-        state = get_checkbox_state_flags(state_id);
-        /* GtkWindow.background GtkCheckButton.check GtkLabel.label */
-        pgtk_style_context_set_parent(label_context, check_context);
-        break;
+        case BP_CHECKBOX:
+            state = get_checkbox_state_flags(state_id);
+            /* GtkWindow.background GtkCheckButton.check GtkLabel.label */
+            pgtk_style_context_set_parent(label_context, check_context);
+            break;
 
-    case BP_GROUPBOX:
-        state = get_groupbox_state_flags(state_id);
-        /* GtkWindow.background GtkLabel.label */
-        pgtk_style_context_set_parent(label_context, window_context);
-        break;
+        case BP_GROUPBOX:
+            state = get_groupbox_state_flags(state_id);
+            /* GtkWindow.background GtkLabel.label */
+            pgtk_style_context_set_parent(label_context, window_context);
+            break;
 
-    default:
-        WINE_FIXME("Unsupported button part %d.\n", part_id);
+        default:
+            FIXME("Unsupported button part %d.\n", part_id);
+            break;
     }
 
     pgtk_style_context_get_color(label_context, state, rgba);
@@ -279,6 +289,8 @@ void uxgtk_button_init(GdkScreen *screen)
     GtkWidgetPath *path = NULL;
     int pos = 0;
 
+    TRACE("(%p)\n", screen);
+
     /* GtkWindow.background */
     path = pgtk_widget_path_new();
     pos = pgtk_widget_path_append_type(path, pgtk_window_get_type());
@@ -326,11 +338,13 @@ void uxgtk_button_init(GdkScreen *screen)
                                  "indicator-size", &indicator_size,
                                  NULL);
 
-    WINE_TRACE("-GtkCheckButton-indicator-size: %d;\n", indicator_size);
+    TRACE("-GtkCheckButton-indicator-size: %d\n", indicator_size);
 }
 
 void uxgtk_button_uninit(void)
 {
+    TRACE("()\n");
+
     pg_object_unref(label_context);
     pgtk_style_context_set_parent(radio_context, NULL);
     pg_object_unref(radio_context);
@@ -341,63 +355,71 @@ void uxgtk_button_uninit(void)
     pg_object_unref(window_context);
 }
 
-HRESULT uxgtk_button_get_color(int part_id, int state_id,
-                               int prop_id, GdkRGBA *rgba)
+HRESULT uxgtk_button_get_color(int part_id, int state_id, int prop_id, GdkRGBA *rgba)
 {
-    switch (prop_id) {
-    case TMT_BORDERCOLOR:
-        get_border_color(rgba);
-        break;
+    TRACE("(%d, %d, %d, %p)\n", part_id, state_id, prop_id, rgba);
 
-    case TMT_TEXTCOLOR:
-        get_text_color(part_id, state_id, rgba);
-        break;
+    switch (prop_id)
+    {
+        case TMT_BORDERCOLOR:
+            get_border_color(rgba);
+            break;
 
-    default:
-        WINE_FIXME("Unsupported property %d.\n", prop_id);
-        return E_FAIL;
+        case TMT_TEXTCOLOR:
+            get_text_color(part_id, state_id, rgba);
+            break;
+
+        default:
+            FIXME("Unsupported property %d.\n", prop_id);
+            return E_FAIL;
     }
 
     return S_OK;
 }
 
-void uxgtk_button_draw_background(cairo_t *cr,
-                                  int part_id, int state_id,
+void uxgtk_button_draw_background(cairo_t *cr, int part_id, int state_id,
                                   int width, int height)
 {
-    switch (part_id) {
-    case BP_PUSHBUTTON:
-        draw_push_button(cr, state_id, width, height);
-        break;
+    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
 
-    case BP_RADIOBUTTON:
-        draw_radio_button(cr, state_id);
-        break;
+    switch (part_id)
+    {
+        case BP_PUSHBUTTON:
+            draw_push_button(cr, state_id, width, height);
+            break;
 
-    case BP_CHECKBOX:
-        draw_checkbox(cr, state_id);
-        break;
+        case BP_RADIOBUTTON:
+            draw_radio_button(cr, state_id);
+            break;
 
-    case BP_GROUPBOX:
-        break; /* GNOME applications don't draw a group box */
+        case BP_CHECKBOX:
+            draw_checkbox(cr, state_id);
+            break;
 
-    default:
-        WINE_FIXME("Unsupported button part %d.\n", part_id);
+        case BP_GROUPBOX:
+            break; /* GNOME applications don't draw a group box */
+
+        default:
+            FIXME("Unsupported button part %d.\n", part_id);
+            break;
     }
 }
 
-HRESULT uxgtk_button_get_part_size(int part_id, int state_id,
-                                   RECT *rect, SIZE *size)
+HRESULT uxgtk_button_get_part_size(int part_id, int state_id, RECT *rect, SIZE *size)
 {
-    switch (part_id) {
-    case BP_CHECKBOX:
-    case BP_RADIOBUTTON:
-        size->cx = indicator_size;
-        size->cy = indicator_size;
-        return S_OK;
+    TRACE("(%d, %d, %p, %p)\n", part_id, state_id, rect, size);
 
-    default:
-        WINE_FIXME("Unsupported button part %d.\n", part_id);
+    switch (part_id)
+    {
+        case BP_CHECKBOX:
+        case BP_RADIOBUTTON:
+            size->cx = indicator_size;
+            size->cy = indicator_size;
+            return S_OK;
+
+        default:
+            FIXME("Unsupported button part %d.\n", part_id);
+            break;
     }
 
     return E_FAIL;
@@ -405,12 +427,12 @@ HRESULT uxgtk_button_get_part_size(int part_id, int state_id,
 
 BOOL uxgtk_button_is_part_defined(int part_id, int state_id)
 {
+    TRACE("(%d, %d)\n", part_id, state_id);
+
     /* Some undocumented checkbox states are not supported */
     if (part_id == BP_CHECKBOX)
-        return state_id < CBS_IMPLICITNORMAL;
+        return (state_id < CBS_IMPLICITNORMAL);
 
     /* Command buttons are not implemented */
-    return part_id > 0 && part_id < BP_COMMANDLINK;
+    return (part_id > 0 && part_id < BP_COMMANDLINK);
 }
-
-/* vim: set expandtab tabstop=8 shiftwidth=4 softtabstop=4: */

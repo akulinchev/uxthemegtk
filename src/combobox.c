@@ -34,16 +34,15 @@ static GtkStyleContext *context = NULL;
 
 static void draw_border(cairo_t *cr, int state_id, int width, int height)
 {
-    int state = state_id == CBXS_DISABLED ? ETS_DISABLED : ETS_NORMAL;
+    int state = (state_id == CBXS_DISABLED) ? ETS_DISABLED : ETS_NORMAL;
     uxgtk_edit_draw_background(cr, EP_EDITTEXT, state, width, height);
 }
 
-static void draw_dropdown_button(cairo_t *cr, int state_id,
-                                 int width, int height)
+static void draw_dropdown_button(cairo_t *cr, int state_id, int width, int height)
 {
     int arrow_x, arrow_y;
-    GtkStateFlags state = state_id == CBXSR_DISABLED
-        ? GTK_STATE_FLAG_INSENSITIVE : GTK_STATE_FLAG_NORMAL;
+    GtkStateFlags state = (state_id == CBXSR_DISABLED) ?
+                          GTK_STATE_FLAG_INSENSITIVE : GTK_STATE_FLAG_NORMAL;
 
     pgtk_style_context_save(context);
 
@@ -59,8 +58,13 @@ static void draw_dropdown_button(cairo_t *cr, int state_id,
 
 void uxgtk_combobox_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = pgtk_widget_path_new();
-    int pos = pgtk_widget_path_append_type(path, pgtk_combo_box_get_type());
+    GtkWidgetPath *path;
+    int pos;
+
+    TRACE("(%p)\n", screen);
+
+    path = pgtk_widget_path_new();
+    pos = pgtk_widget_path_append_type(path, pgtk_combo_box_get_type());
 
     pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_COMBOBOX_ENTRY);
 
@@ -74,31 +78,33 @@ void uxgtk_combobox_init(GdkScreen *screen)
 
 void uxgtk_combobox_uninit(void)
 {
+    TRACE("()\n");
     pg_object_unref(context);
 }
 
-void uxgtk_combobox_draw_background(cairo_t *cr,
-                                    int part_id, int state_id,
-                                    int width, int height)
+void uxgtk_combobox_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
 {
-    switch (part_id) {
-    case 0:
-    case CP_BORDER:
-        draw_border(cr, state_id, width, height);
-        break;
+    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
 
-    case CP_DROPDOWNBUTTON:
-        draw_dropdown_button(cr, state_id, width, height);
-        break;
+    switch (part_id)
+    {
+        case 0:
+        case CP_BORDER:
+            draw_border(cr, state_id, width, height);
+            break;
 
-    default:
-        WINE_FIXME("Unsupported combobox part %d.\n", part_id);
+        case CP_DROPDOWNBUTTON:
+            draw_dropdown_button(cr, state_id, width, height);
+            break;
+
+        default:
+            FIXME("Unsupported combobox part %d.\n", part_id);
+            break;
     }
 }
 
 BOOL uxgtk_combobox_is_part_defined(int part_id, int state_id)
 {
-    return part_id == 0 || part_id == CP_DROPDOWNBUTTON;
+    TRACE("(%d, %d)\n", part_id, state_id);
+    return (part_id == 0 || part_id == CP_DROPDOWNBUTTON);
 }
-
-/* vim: set expandtab tabstop=8 shiftwidth=4 softtabstop=4: */

@@ -19,13 +19,13 @@
 CC = winegcc
 RM = rm -f
 
-CFLAGS  = -fPIC -Wall -O3 $(shell pkg-config --cflags gtk+-3.0)
+CFLAGS  = -fPIC -Wall -O3 $(shell pkg-config --cflags gtk+-3.0) -D__WINESRC__
 LDFLAGS = -shared -lgdi32
 
 TARGET  = uxtheme.dll.so
 SOURCES = $(shell echo src/*.c)
 OBJECTS = $(SOURCES:.c=.o)
-LIBSPEC = src/uxtheme.spec
+LIBSPEC = src/uxthemegtk.spec
 
 .PHONY: all clean
 
@@ -36,5 +36,3 @@ $(TARGET): $(OBJECTS)
 
 clean:
 	$(RM) $(TARGET) $(OBJECTS)
-
-# vim: noexpandtab filetype=make

@@ -28,15 +28,14 @@ WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 static int tab_overlap = 0;
 static GtkStyleContext *context = NULL;
 
-static void draw_tab_item(cairo_t *cr,
-                          int part_id, int state_id,
-                          int width, int height)
+static void draw_tab_item(cairo_t *cr, int part_id, int state_id, int width, int height)
 {
     int x = 0, new_width = width, new_height = height;
     GtkRegionFlags region = 0;
 
     /* Emulate the "-GtkNotebook-tab-overlap" style property */
-    if (part_id == TABP_TABITEM || part_id == TABP_TABITEMRIGHTEDGE) {
+    if (part_id == TABP_TABITEM || part_id == TABP_TABITEMRIGHTEDGE)
+    {
         x = -tab_overlap;
         new_width += tab_overlap;
     }
@@ -54,7 +53,8 @@ static void draw_tab_item(cairo_t *cr,
     pgtk_style_context_set_junction_sides(context, GTK_JUNCTION_BOTTOM);
 
     /* Active tabs have their own parts */
-    if (part_id > TABP_TABITEMBOTHEDGE && part_id < TABP_PANE) {
+    if (part_id > TABP_TABITEMBOTHEDGE && part_id < TABP_PANE)
+    {
         new_height--; /* Fix the active tab height */
         pgtk_style_context_set_state(context, GTK_STATE_FLAG_ACTIVE);
     }
@@ -82,8 +82,13 @@ static void draw_tab_body(cairo_t *cr, int width, int height)
 
 void uxgtk_tab_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = pgtk_widget_path_new();
-    int pos = pgtk_widget_path_append_type(path, pgtk_notebook_get_type());
+    GtkWidgetPath *path;
+    int pos;
+
+    TRACE("(%p)\n", screen);
+
+    path = pgtk_widget_path_new();
+    pos = pgtk_widget_path_append_type(path, pgtk_notebook_get_type());
 
     pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_NOTEBOOK);
     pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_TOP);
@@ -94,45 +99,48 @@ void uxgtk_tab_init(GdkScreen *screen)
 
     pgtk_style_context_get_style(context, "tab-overlap", &tab_overlap, NULL);
 
-    WINE_TRACE("-GtkNotebook-tab-overlap: %d;\n", tab_overlap);
+    TRACE("-GtkNotebook-tab-overlap: %d\n", tab_overlap);
 }
 
 void uxgtk_tab_uninit(void)
 {
+    TRACE("()\n");
     pg_object_unref(context);
 }
 
-void uxgtk_tab_draw_background(cairo_t *cr,
-                               int part_id, int state_id,
-                               int width, int height)
+void uxgtk_tab_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
 {
+    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+
     pgtk_style_context_save(context);
 
     /* Draw a dialog background to fix some themes like Ambiance */
     uxgtk_window_draw_background(cr, WP_DIALOG, 0, width, height - 1);
 
-    switch (part_id) {
-    case TABP_TABITEM:
-    case TABP_TABITEMLEFTEDGE:
-    case TABP_TABITEMRIGHTEDGE:
-    case TABP_TABITEMBOTHEDGE:
-    case TABP_TOPTABITEM:
-    case TABP_TOPTABITEMLEFTEDGE:
-    case TABP_TOPTABITEMRIGHTEDGE:
-    case TABP_TOPTABITEMBOTHEDGE:
-        draw_tab_item(cr, part_id, state_id, width, height);
-        break;
+    switch (part_id)
+    {
+        case TABP_TABITEM:
+        case TABP_TABITEMLEFTEDGE:
+        case TABP_TABITEMRIGHTEDGE:
+        case TABP_TABITEMBOTHEDGE:
+        case TABP_TOPTABITEM:
+        case TABP_TOPTABITEMLEFTEDGE:
+        case TABP_TOPTABITEMRIGHTEDGE:
+        case TABP_TOPTABITEMBOTHEDGE:
+            draw_tab_item(cr, part_id, state_id, width, height);
+            break;
 
-    case TABP_PANE:
-        draw_tab_pane(cr, width, height);
-        break;
+        case TABP_PANE:
+            draw_tab_pane(cr, width, height);
+            break;
 
-    case TABP_BODY:
-        draw_tab_body(cr, width, height);
-        break;
+        case TABP_BODY:
+            draw_tab_body(cr, width, height);
+            break;
 
-    default:
-        WINE_FIXME("Unsupported tab part %d.\n", part_id);
+        default:
+            FIXME("Unsupported tab part %d.\n", part_id);
+            break;
     }
 
     pgtk_style_context_restore(context);
@@ -140,8 +148,8 @@ void uxgtk_tab_draw_background(cairo_t *cr,
 
 BOOL uxgtk_tab_is_part_defined(int part_id, int state_id)
 {
-    /* TABP_AEROWIZARDBODY is not used by comctl32.dll */
-    return part_id > 0 && part_id < TABP_AEROWIZARDBODY;
-}
+    TRACE("(%d, %d)\n", part_id, state_id);
 
-/* vim: set expandtab tabstop=8 shiftwidth=4 softtabstop=4: */
+    /* TABP_AEROWIZARDBODY is not used by comctl32.dll */
+    return (part_id > 0 && part_id < TABP_AEROWIZARDBODY);
+}

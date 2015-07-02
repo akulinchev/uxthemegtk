@@ -44,8 +44,13 @@ static void draw_header_item(cairo_t *cr, int state_id, int width, int height)
 
 void uxgtk_header_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = pgtk_widget_path_new();
-    int pos = pgtk_widget_path_append_type(path, pgtk_tree_view_get_type());
+    GtkWidgetPath *path;
+    int pos;
+
+    TRACE("(%p)\n", screen);
+
+    path = pgtk_widget_path_new();
+    pos = pgtk_widget_path_append_type(path, pgtk_tree_view_get_type());
 
     pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_VIEW);
     pgtk_widget_path_iter_add_region(path, pos, GTK_STYLE_REGION_COLUMN_HEADER, 0);
@@ -60,27 +65,28 @@ void uxgtk_header_init(GdkScreen *screen)
 
 void uxgtk_header_uninit(void)
 {
+    TRACE("()\n");
     pg_object_unref(context);
 }
 
-void uxgtk_header_draw_background(cairo_t *cr,
-                                  int part_id, int state_id,
-                                  int width, int height)
+void uxgtk_header_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
 {
+    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+
     pgtk_style_context_save(context);
 
     if (part_id == HP_HEADERITEM)
         draw_header_item(cr, state_id, width, height);
     else
-        WINE_FIXME("Unsupported header part %d.\n", part_id);
+        FIXME("Unsupported header part %d.\n", part_id);
 
     pgtk_style_context_restore(context);
 }
 
 BOOL uxgtk_header_is_part_defined(int part_id, int state_id)
 {
-    /* comctl32.dll uses only HP_HEADERITEM */
-    return part_id == HP_HEADERITEM;
-}
+    TRACE("(%d, %d)\n", part_id, state_id);
 
-/* vim: set expandtab tabstop=8 shiftwidth=4 softtabstop=4: */
+    /* comctl32.dll uses only HP_HEADERITEM */
+    return (part_id == HP_HEADERITEM);
+}

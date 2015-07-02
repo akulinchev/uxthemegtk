@@ -39,11 +39,14 @@ static void draw_separator(cairo_t *cr, int part_id, int width, int height)
 {
     int x1, x2, y1, y2;
 
-    if (part_id == TP_SEPARATOR) { /* TP_SEPARATORVERT ? */
+    if (part_id == TP_SEPARATOR) /* TP_SEPARATORVERT ? */
+    {
         y1 = 0;
         y2 = height;
         x1 = x2 = width/2;
-    } else {
+    }
+    else
+    {
         x1 = 0;
         x2 = width;
         y1 = y2 = height/2;
@@ -54,8 +57,13 @@ static void draw_separator(cairo_t *cr, int part_id, int width, int height)
 
 void uxgtk_toolbar_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = pgtk_widget_path_new();
-    int pos = pgtk_widget_path_append_type(path, pgtk_separator_get_type());
+    GtkWidgetPath *path;
+    int pos;
+
+    TRACE("(%p)\n", screen);
+
+    path = pgtk_widget_path_new();
+    pos = pgtk_widget_path_append_type(path, pgtk_separator_get_type());
     pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_SEPARATOR);
 
     context = pgtk_style_context_new();
@@ -65,31 +73,33 @@ void uxgtk_toolbar_init(GdkScreen *screen)
 
 void uxgtk_toolbar_uninit(void)
 {
+    TRACE("()\n");
     pg_object_unref(context);
 }
 
-void uxgtk_toolbar_draw_background(cairo_t *cr,
-                                   int part_id, int state_id,
-                                   int width, int height)
+void uxgtk_toolbar_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
 {
-    switch (part_id) {
-    case TP_BUTTON:
-        draw_button(cr, state_id, width, height);
-        break;
+    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
 
-    case TP_SEPARATOR:
-    case TP_SEPARATORVERT:
-        draw_separator(cr, part_id, width, height);
-        break;
+    switch (part_id)
+    {
+        case TP_BUTTON:
+            draw_button(cr, state_id, width, height);
+            break;
 
-    default:
-        WINE_FIXME("Unknown toolbar part %d.\n", part_id);
+        case TP_SEPARATOR:
+        case TP_SEPARATORVERT:
+            draw_separator(cr, part_id, width, height);
+            break;
+
+        default:
+            FIXME("Unknown toolbar part %d.\n", part_id);
+            break;
     }
 }
 
 BOOL uxgtk_toolbar_is_part_defined(int part_id, int state_id)
 {
-    return part_id == TP_BUTTON || part_id == TP_SEPARATOR || part_id == TP_SEPARATORVERT;
+    TRACE("(%d, %d)\n", part_id, state_id);
+    return (part_id == TP_BUTTON || part_id == TP_SEPARATOR || part_id == TP_SEPARATORVERT);
 }
-
-/* vim: set expandtab tabstop=8 shiftwidth=4 softtabstop=4: */

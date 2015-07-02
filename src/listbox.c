@@ -29,8 +29,13 @@ static GtkStyleContext *context = NULL;
 
 void uxgtk_listbox_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = pgtk_widget_path_new();
-    int pos = pgtk_widget_path_append_type(path, pgtk_scrolled_window_get_type());
+    GtkWidgetPath *path;
+    int pos;
+
+    TRACE("(%p)\n", screen);
+
+    path = pgtk_widget_path_new();
+    pos = pgtk_widget_path_append_type(path, pgtk_scrolled_window_get_type());
 
     pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_VIEW);
     pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_FRAME);
@@ -42,32 +47,34 @@ void uxgtk_listbox_init(GdkScreen *screen)
 
 void uxgtk_listbox_uninit(void)
 {
+    TRACE("()\n");
     pg_object_unref(context);
 }
 
-void uxgtk_listbox_draw_background(cairo_t *cr,
-                                   int part_id, int state_id,
-                                   int width, int height)
+void uxgtk_listbox_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
 {
-    switch (part_id) {
-    case 0:
-    case LBCP_BORDER_HSCROLL:
-    case LBCP_BORDER_HVSCROLL:
-    case LBCP_BORDER_NOSCROLL:
-    case LBCP_BORDER_VSCROLL:
-        pgtk_render_background(context, cr, 0, 0, width, height);
-        pgtk_render_frame(context, cr, 0, 0, width, height);
-        break;
+    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
 
-    default:
-        WINE_FIXME("Unsupported listbox part %d.\n", part_id);
+    switch (part_id) {
+        case 0:
+        case LBCP_BORDER_HSCROLL:
+        case LBCP_BORDER_HVSCROLL:
+        case LBCP_BORDER_NOSCROLL:
+        case LBCP_BORDER_VSCROLL:
+            pgtk_render_background(context, cr, 0, 0, width, height);
+            pgtk_render_frame(context, cr, 0, 0, width, height);
+            break;
+
+        default:
+            FIXME("Unsupported listbox part %d.\n", part_id);
+            break;
     }
 }
 
 BOOL uxgtk_listbox_is_part_defined(int part_id, int state_id)
 {
-    /* >= 0 because comctl32.dll always sends 0. LBCP_ITEM is not used. */
-    return part_id >= 0 && part_id < LBCP_ITEM;
-}
+    TRACE("(%d, %d)\n", part_id, state_id);
 
-/* vim: set expandtab tabstop=8 shiftwidth=4 softtabstop=4: */
+    /* >= 0 because comctl32.dll always sends 0. LBCP_ITEM is not used. */
+    return (part_id >= 0 && part_id < LBCP_ITEM);
+}

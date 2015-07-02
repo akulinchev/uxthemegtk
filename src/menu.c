@@ -34,21 +34,23 @@ static GtkStyleContext *window_context = NULL;
 
 static inline GtkStateFlags get_popup_item_state_flags(int state_id)
 {
-    switch (state_id) {
-    case MPI_NORMAL:
-        return GTK_STATE_FLAG_NORMAL;
+    switch (state_id)
+    {
+        case MPI_NORMAL:
+            return GTK_STATE_FLAG_NORMAL;
 
-    case MPI_HOT:
-        return GTK_STATE_FLAG_PRELIGHT;
+        case MPI_HOT:
+            return GTK_STATE_FLAG_PRELIGHT;
 
-    case MPI_DISABLED:
-        return GTK_STATE_FLAG_INSENSITIVE;
+        case MPI_DISABLED:
+            return GTK_STATE_FLAG_INSENSITIVE;
 
-    case MPI_DISABLEDHOT: /* WAT??? */
-        return GTK_STATE_FLAG_INSENSITIVE | GTK_STATE_FLAG_PRELIGHT;
+        case MPI_DISABLEDHOT: /* WAT??? */
+            return GTK_STATE_FLAG_INSENSITIVE | GTK_STATE_FLAG_PRELIGHT;
 
-    default:
-        WINE_FIXME("Unknown popup item state %d.\n", state_id);
+        default:
+            FIXME("Unknown popup item state %d.\n", state_id);
+            break;
     }
 
     return GTK_STATE_FLAG_NORMAL;
@@ -56,16 +58,18 @@ static inline GtkStateFlags get_popup_item_state_flags(int state_id)
 
 static inline GtkStateFlags get_state_flags(int part_id, int state_id)
 {
-    switch (part_id) {
-    case MENU_BARBACKGROUND:
-    case MENU_POPUPBACKGROUND:
-        return GTK_STATE_FLAG_NORMAL;
+    switch (part_id)
+    {
+        case MENU_BARBACKGROUND:
+        case MENU_POPUPBACKGROUND:
+            return GTK_STATE_FLAG_NORMAL;
 
-    case MENU_POPUPITEM:
-        return get_popup_item_state_flags(state_id);
+        case MENU_POPUPITEM:
+            return get_popup_item_state_flags(state_id);
 
-    default:
-        WINE_FIXME("Unknown menu part %d.\n", part_id);
+        default:
+            FIXME("Unknown menu part %d.\n", part_id);
+            break;
     }
 
     return GTK_STATE_FLAG_NORMAL;
@@ -73,18 +77,20 @@ static inline GtkStateFlags get_state_flags(int part_id, int state_id)
 
 static inline GtkStyleContext *get_style_context(int part_id)
 {
-    switch (part_id) {
-    case MENU_BARBACKGROUND:
-        return menubar_context;
+    switch (part_id)
+    {
+        case MENU_BARBACKGROUND:
+            return menubar_context;
 
-    case MENU_POPUPBACKGROUND:
-        return menu_context;
+        case MENU_POPUPBACKGROUND:
+            return menu_context;
 
-    case MENU_POPUPITEM:
-        return menuitem_context;
+        case MENU_POPUPITEM:
+            return menuitem_context;
 
-    default:
-        WINE_FIXME("Unknown menu part %d.\n", part_id);
+        default:
+            FIXME("Unknown menu part %d.\n", part_id);
+            break;
     }
 
     return menubar_context;
@@ -94,6 +100,8 @@ void uxgtk_menu_init(GdkScreen *screen)
 {
     GtkWidgetPath *path = NULL;
     int pos = 0;
+
+    TRACE("(%p)\n", screen);
 
     /* GtkWindow.background */
     path = pgtk_widget_path_new();
@@ -133,6 +141,8 @@ void uxgtk_menu_init(GdkScreen *screen)
 
 void uxgtk_menu_uninit(void)
 {
+    TRACE("()\n");
+
     pgtk_style_context_set_parent(menuitem_context, NULL);
     pg_object_unref(menuitem_context);
     pgtk_style_context_set_parent(menu_context, NULL);
@@ -142,27 +152,27 @@ void uxgtk_menu_uninit(void)
     pg_object_unref(window_context);
 }
 
-HRESULT uxgtk_menu_get_color(int part_id, int state_id,
-                             int prop_id, GdkRGBA *rgba)
+HRESULT uxgtk_menu_get_color(int part_id, int state_id, int prop_id, GdkRGBA *rgba)
 {
     GtkStyleContext *context = get_style_context(part_id);
     GtkStateFlags state = get_state_flags(part_id, state_id);
 
-    switch (prop_id) {
-    case TMT_FILLCOLOR:
-        pgtk_style_context_get_background_color(context, state, rgba);
-        break;
+    TRACE("(%d, %d, %d, %p)\n", part_id, state_id, prop_id, rgba);
 
-    case TMT_TEXTCOLOR:
-        pgtk_style_context_get_color(context, state, rgba);
-        break;
+    switch (prop_id)
+    {
+        case TMT_FILLCOLOR:
+            pgtk_style_context_get_background_color(context, state, rgba);
+            break;
 
-    default:
-        WINE_FIXME("Unsupported property %d.\n", prop_id);
-        return E_FAIL;
+        case TMT_TEXTCOLOR:
+            pgtk_style_context_get_color(context, state, rgba);
+            break;
+
+        default:
+            FIXME("Unsupported property %d.\n", prop_id);
+            return E_FAIL;
     }
 
     return S_OK;
 }
-
-/* vim: set expandtab tabstop=8 shiftwidth=4 softtabstop=4: */

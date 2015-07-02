@@ -44,7 +44,11 @@ static void draw_gripper(cairo_t *cr, int width, int height)
 
 void uxgtk_status_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = pgtk_widget_path_new();
+    GtkWidgetPath *path;
+ 
+    TRACE("(%p)\n", screen);
+
+    path = pgtk_widget_path_new();
 
     pgtk_widget_path_append_type(path, pgtk_window_get_type());
 
@@ -57,43 +61,46 @@ void uxgtk_status_init(GdkScreen *screen)
                                  "resize-grip-height", &grip_height,
                                  NULL);
 
-    WINE_TRACE("-GtkWindow-resize-grip-width: %d;\n"
-               "-GtkWindow-resize-grip-height: %d;\n",
-               grip_width, grip_height);
+    TRACE("-GtkWindow-resize-grip-width: %d\n", grip_width);
+    TRACE("-GtkWindow-resize-grip-height: %d\n", grip_height);
 }
 
 void uxgtk_status_uninit(void)
 {
+    TRACE("()\n");
     pg_object_unref(context);
 }
 
-void uxgtk_status_draw_background(cairo_t *cr,
-                                  int part_id, int state_id,
-                                  int width, int height)
+void uxgtk_status_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
 {
+    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+
     pgtk_style_context_save(context);
 
-    switch (part_id) {
-    case 0:
-    case SP_PANE:
-    case SP_GRIPPERPANE:
-        draw_pane(cr, width, height);
-        break;
+    switch (part_id)
+    {
+        case 0:
+        case SP_PANE:
+        case SP_GRIPPERPANE:
+            draw_pane(cr, width, height);
+            break;
 
-    case SP_GRIPPER:
-        draw_gripper(cr, width, height);
-        break;
+        case SP_GRIPPER:
+            draw_gripper(cr, width, height);
+            break;
 
-    default:
-        WINE_FIXME("Unknown status part %d.\n", part_id);
+        default:
+            FIXME("Unknown status part %d.\n", part_id);
+            break;
     }
 
     pgtk_style_context_restore(context);
 }
 
-HRESULT uxgtk_status_get_part_size(int part_id, int state_id,
-                                   RECT *rect, SIZE *size)
+HRESULT uxgtk_status_get_part_size(int part_id, int state_id, RECT *rect, SIZE *size)
 {
+    TRACE("(%d, %d, %p, %p)\n", part_id, state_id, rect, size);
+
     if (part_id != SP_GRIPPER)
         return E_FAIL;
 
@@ -105,8 +112,8 @@ HRESULT uxgtk_status_get_part_size(int part_id, int state_id,
 
 BOOL uxgtk_status_is_part_defined(int part_id, int state_id)
 {
-    /* comctl32.dll thinks SP_PANE == 0 */
-    return part_id >= 0 && part_id <= SP_GRIPPER;
-}
+    TRACE("(%d, %d)\n", part_id, state_id);
 
-/* vim: set expandtab tabstop=8 shiftwidth=4 softtabstop=4: */
+    /* comctl32.dll thinks SP_PANE == 0 */
+    return (part_id >= 0 && part_id <= SP_GRIPPER);
+}

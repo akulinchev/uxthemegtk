@@ -31,8 +31,13 @@ static GtkStyleContext *context = NULL;
 
 void uxgtk_window_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = pgtk_widget_path_new();
-    int pos = pgtk_widget_path_append_type(path, pgtk_window_get_type());
+    GtkWidgetPath *path;
+    int pos;
+
+    TRACE("(%p)\n", screen);
+
+    path = pgtk_widget_path_new();
+    pos = pgtk_widget_path_append_type(path, pgtk_window_get_type());
 
     pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_BACKGROUND);
 
@@ -43,42 +48,44 @@ void uxgtk_window_init(GdkScreen *screen)
 
 void uxgtk_window_uninit(void)
 {
+    TRACE("()\n");
     pg_object_unref(context);
 }
 
-HRESULT uxgtk_window_get_color(int part_id, int state_id,
-                               int prop_id, GdkRGBA *rgba)
+HRESULT uxgtk_window_get_color(int part_id, int state_id, int prop_id, GdkRGBA *rgba)
 {
-    switch (prop_id) {
-    case TMT_FILLCOLOR:
-        pgtk_style_context_get_background_color(context, GTK_STATE_FLAG_NORMAL, rgba);
-        break;
+    TRACE("(%d, %d, %d, %p)\n", part_id, state_id, prop_id, rgba);
 
-    case TMT_TEXTCOLOR:
-        pgtk_style_context_get_color(context, GTK_STATE_FLAG_NORMAL, rgba);
-        break;
+    switch (prop_id)
+    {
+        case TMT_FILLCOLOR:
+            pgtk_style_context_get_background_color(context, GTK_STATE_FLAG_NORMAL, rgba);
+            break;
 
-    default:
-        WINE_FIXME("Unknown property %d.\n", prop_id);
-        return E_FAIL;
+        case TMT_TEXTCOLOR:
+            pgtk_style_context_get_color(context, GTK_STATE_FLAG_NORMAL, rgba);
+            break;
+
+        default:
+            FIXME("Unknown property %d.\n", prop_id);
+            return E_FAIL;
     }
 
     return S_OK;
 }
 
-void uxgtk_window_draw_background(cairo_t *cr,
-                                  int part_id, int state_id,
-                                  int width, int height)
+void uxgtk_window_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
 {
+    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+
     if (part_id == WP_DIALOG)
         pgtk_render_background(context, cr, 0, 0, width, height);
     else
-        WINE_FIXME("Unsupported window part %d.\n", part_id);
+        FIXME("Unsupported window part %d.\n", part_id);
 }
 
 BOOL uxgtk_window_is_part_defined(int part_id, int state_id)
 {
-    return part_id == WP_DIALOG;
+    TRACE("(%d, %d)\n", part_id, state_id);
+    return (part_id == WP_DIALOG);
 }
-
-/* vim: set expandtab tabstop=8 shiftwidth=4 softtabstop=4: */

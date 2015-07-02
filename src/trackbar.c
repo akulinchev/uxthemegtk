@@ -32,11 +32,14 @@ static void draw_track(cairo_t *cr, int part_id, int width, int height)
 {
     int x1, x2, y1, y2;
 
-    if (part_id == TKP_TRACKVERT) {
+    if (part_id == TKP_TRACKVERT)
+    {
         y1 = 0;
         y2 = height;
         x1 = x2 = width/2;
-    } else {
+    }
+    else
+    {
         x1 = 0;
         x2 = width;
         y1 = y2 = height/2;
@@ -78,7 +81,11 @@ static void draw_thumb(cairo_t *cr, int state_id, int width, int height)
 
 void uxgtk_trackbar_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = pgtk_widget_path_new();
+    GtkWidgetPath *path;
+
+    TRACE("(%p)\n", screen);
+
+    path = pgtk_widget_path_new();
     pgtk_widget_path_append_type(path, pgtk_scale_get_type());
 
     context = pgtk_style_context_new();
@@ -90,39 +97,41 @@ void uxgtk_trackbar_init(GdkScreen *screen)
                                  "slider-width", &slider_height, /* Yes, it is */
                                  NULL);
 
-    WINE_TRACE("-GtkScale-slider-length: %d;\n"
-               "-GtkScale-slider-width: %d;\n",
-               slider_width, slider_height);
+    TRACE("-GtkScale-slider-length: %d\n", slider_width);
+    TRACE("-GtkScale-slider-width: %d\n", slider_height);
 }
 
 void uxgtk_trackbar_uninit(void)
 {
+    TRACE("()\n");
     pg_object_unref(context);
 }
 
-void uxgtk_trackbar_draw_background(cairo_t *cr,
-                                    int part_id, int state_id,
-                                    int width, int height)
+void uxgtk_trackbar_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
 {
+    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+
     pgtk_style_context_save(context);
 
-    switch (part_id) {
-    case TKP_THUMB:
-    case TKP_THUMBBOTTOM:
-    case TKP_THUMBTOP:
-    case TKP_THUMBVERT:
-    case TKP_THUMBLEFT:
-    case TKP_THUMBRIGHT:
-        draw_thumb(cr, state_id, width, height);
-        break;
+    switch (part_id)
+    {
+        case TKP_THUMB:
+        case TKP_THUMBBOTTOM:
+        case TKP_THUMBTOP:
+        case TKP_THUMBVERT:
+        case TKP_THUMBLEFT:
+        case TKP_THUMBRIGHT:
+            draw_thumb(cr, state_id, width, height);
+            break;
 
-    case TKP_TRACK:
-    case TKP_TRACKVERT:
-        draw_track(cr, part_id, width, height);
-        break;
+        case TKP_TRACK:
+        case TKP_TRACKVERT:
+            draw_track(cr, part_id, width, height);
+            break;
 
-    default:
-        WINE_FIXME("Unsupported trackbar part %d.\n", part_id);
+        default:
+            FIXME("Unsupported trackbar part %d.\n", part_id);
+            break;
     }
 
     pgtk_style_context_restore(context);
@@ -130,7 +139,6 @@ void uxgtk_trackbar_draw_background(cairo_t *cr,
 
 BOOL uxgtk_trackbar_is_part_defined(int part_id, int state_id)
 {
-    return part_id > 0 && part_id < TKP_TICS;
+    TRACE("(%d, %d)\n", part_id, state_id);
+    return (part_id > 0 && part_id < TKP_TICS);
 }
-
-/* vim: set expandtab tabstop=8 shiftwidth=4 softtabstop=4: */

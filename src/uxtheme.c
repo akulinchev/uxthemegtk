@@ -52,6 +52,7 @@ MAKE_FUNCPTR(cairo_create);
 MAKE_FUNCPTR(cairo_destroy);
 MAKE_FUNCPTR(cairo_image_surface_create);
 MAKE_FUNCPTR(cairo_image_surface_get_data);
+MAKE_FUNCPTR(cairo_image_surface_get_stride);
 MAKE_FUNCPTR(cairo_surface_destroy);
 MAKE_FUNCPTR(cairo_surface_flush);
 MAKE_FUNCPTR(g_object_unref);
@@ -237,7 +238,8 @@ static void apply_colors(void)
     int i, colors[NUM_SYS_COLORS];
     COLORREF refs[NUM_SYS_COLORS];
 
-    for (i = 0; i < NUM_SYS_COLORS; i++) {
+    for (i = 0; i < NUM_SYS_COLORS; i++)
+    {
         refs[i] = GetThemeSysColor(NULL, i);
         colors[i] = i;
     }
@@ -252,13 +254,11 @@ static void fix_sys_params(void)
     memset(&metrics, 0, sizeof(metrics));
     metrics.cbSize = sizeof(metrics);
 
-    SystemParametersInfoW(SPI_GETNONCLIENTMETRICS,
-                          sizeof(metrics), &metrics, 0);
+    SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0);
 
     metrics.iMenuHeight = MENU_HEIGHT;
 
-    SystemParametersInfoW(SPI_SETNONCLIENTMETRICS,
-                          sizeof(metrics), &metrics, 0);
+    SystemParametersInfoW(SPI_SETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0);
 
     SystemParametersInfoW(SPI_SETCLEARTYPE, 0, (LPVOID)TRUE, 0);
     SystemParametersInfoW(SPI_SETFONTSMOOTHING, 0, (LPVOID)TRUE, 0);
@@ -276,7 +276,7 @@ static void free_gtk3_libs(void)
 #define LOAD_FUNCPTR(lib, f) \
     if(!(p##f = wine_dlsym(lib, #f, NULL, 0))) \
     { \
-        WINE_WARN("Can't find symbol %s.\n", #f); \
+        WARN("Can't find symbol %s.\n", #f); \
         goto error; \
     }
 
@@ -285,7 +285,7 @@ static BOOL load_gtk3_libs(void)
     libgtk3 = wine_dlopen(SONAME_LIBGTK_3, RTLD_NOW, NULL, 0);
     if (!libgtk3)
     {
-        WINE_FIXME("Wine cannot find the %s library.\n", SONAME_LIBGTK_3);
+        FIXME("Wine cannot find the %s library.\n", SONAME_LIBGTK_3);
         goto error;
     }
 
@@ -336,7 +336,7 @@ static BOOL load_gtk3_libs(void)
     libgdk3 = wine_dlopen(SONAME_LIBGDK_3, RTLD_NOW, NULL, 0);
     if (!libgdk3)
     {
-        WINE_FIXME("Wine cannot find the %s library.\n", SONAME_LIBGDK_3);
+        FIXME("Wine cannot find the %s library.\n", SONAME_LIBGDK_3);
         goto error;
     }
 
@@ -345,7 +345,7 @@ static BOOL load_gtk3_libs(void)
     libcairo = wine_dlopen(SONAME_LIBCAIRO, RTLD_NOW, NULL, 0);
     if (!libcairo)
     {
-        WINE_FIXME("Wine cannot find the %s library.\n", SONAME_LIBCAIRO);
+        FIXME("Wine cannot find the %s library.\n", SONAME_LIBCAIRO);
         goto error;
     }
 
@@ -353,13 +353,14 @@ static BOOL load_gtk3_libs(void)
     LOAD_FUNCPTR(libcairo, cairo_destroy)
     LOAD_FUNCPTR(libcairo, cairo_image_surface_create)
     LOAD_FUNCPTR(libcairo, cairo_image_surface_get_data)
+    LOAD_FUNCPTR(libcairo, cairo_image_surface_get_stride)
     LOAD_FUNCPTR(libcairo, cairo_surface_destroy)
     LOAD_FUNCPTR(libcairo, cairo_surface_flush)
 
     libgobject2 = wine_dlopen(SONAME_LIBGOBJECT_2_0, RTLD_NOW, NULL, 0);
     if (!libgobject2)
     {
-        WINE_FIXME("Wine cannot find the %s library.\n", SONAME_LIBGOBJECT_2_0);
+        FIXME("Wine cannot find the %s library.\n", SONAME_LIBGOBJECT_2_0);
         goto error;
     }
 
@@ -401,12 +402,14 @@ static void uninit(void)
 
     for (i = 0; i < THEMES_SIZE; i++)
         themes[i].uninit();
+
+    free_gtk3_libs();
 }
 
 static void paint_cairo_surface(cairo_surface_t *surface, HDC target_hdc,
                                 int x, int y, int width, int height)
 {
-    int i;
+    int i, dib_stride, cairo_stride;
     HDC bitmap_hdc;
     HBITMAP bitmap;
     BITMAPINFO info;
@@ -437,9 +440,11 @@ static void paint_cairo_surface(cairo_surface_t *surface, HDC target_hdc,
     pcairo_surface_flush(surface);
 
     surface_data = pcairo_image_surface_get_data(surface);
+    cairo_stride = pcairo_image_surface_get_stride(surface);
+    dib_stride = width * 4;
 
-    for (i = 0; i < width * height * PIXEL_SIZE; i++)
-        bitmap_data[i] = surface_data[i];
+    for (i = 0; i < height; i++)
+        memcpy(bitmap_data + i * dib_stride, surface_data + i * cairo_stride, width * 4);
 
     SelectObject(bitmap_hdc, bitmap);
 
@@ -484,11 +489,14 @@ static BOOL match_class(LPCWSTR classlist, LPCWSTR classname)
 
 HRESULT WINAPI CloseThemeData(HTHEME htheme)
 {
+    TRACE("(%p)\n", htheme);
     return S_OK; /* Do nothing */
 }
 
 HRESULT WINAPI EnableThemeDialogTexture(HWND hwnd, DWORD flags)
 {
+    TRACE("(%p, %u)\n", hwnd, flags);
+
     if (flags & ETDT_USETABTEXTURE)
         OpenThemeData(hwnd, VSCLASS_TAB); /* No CloseThemeData is needed */
 
@@ -497,6 +505,7 @@ HRESULT WINAPI EnableThemeDialogTexture(HWND hwnd, DWORD flags)
 
 HRESULT WINAPI EnableTheming(BOOL enable)
 {
+    TRACE("(%u)\n", enable);
     return S_OK; /* Always enabled */
 }
 
@@ -504,31 +513,39 @@ HRESULT WINAPI GetCurrentThemeName(LPWSTR filename, int filename_maxlen,
                                    LPWSTR color, int color_maxlen,
                                    LPWSTR size, int size_maxlen)
 {
+    TRACE("(%p, %d, %p, %d, %p, %d)\n", filename, filename_maxlen,
+          color, color_maxlen, size, size_maxlen);
+
     return E_FAIL; /* To prevent calling EnumThemeColors and so on */
 }
 
 DWORD WINAPI GetThemeAppProperties(void)
 {
+    TRACE("()\n");
     return STAP_ALLOW_CONTROLS; /* Non-client drawing is not supported */
 }
 
 HTHEME WINAPI GetWindowTheme(HWND hwnd)
 {
+    TRACE("(%p)\n", hwnd);
     return GetPropW(hwnd, THEME_PROPERTY);
 }
 
 BOOL WINAPI IsAppThemed(void)
 {
+    TRACE("()\n");
     return TRUE; /* Always themed */
 }
 
 BOOL WINAPI IsThemeActive(void)
 {
+    TRACE("()\n");
     return TRUE; /* Always active */
 }
 
 BOOL WINAPI IsThemeDialogTextureEnabled(HWND hwnd)
 {
+    TRACE("(%p)\n", hwnd);
     return TRUE; /* Always enabled */
 }
 
@@ -536,57 +553,62 @@ HTHEME WINAPI OpenThemeData(HWND hwnd, LPCWSTR classlist)
 {
     int i;
 
+    TRACE("(%p, %s)\n", hwnd, wine_dbgstr_w(classlist));
+
     /* comctl32.dll likes to send NULL */
-    if (classlist == NULL) {
+    if (classlist == NULL)
+    {
         SetLastError(ERROR_INVALID_PARAMETER);
         return NULL;
     }
 
-    for (i = 0; i < THEMES_SIZE; i++) {
-        if (match_class(classlist, themes[i].classname)) {
-            WINE_TRACE("Using %s for %s.\n",
-                       wine_dbgstr_w(themes[i].classname),
-                       wine_dbgstr_w(classlist));
+    for (i = 0; i < THEMES_SIZE; i++)
+    {
+        if (match_class(classlist, themes[i].classname))
+        {
+            TRACE("Using %s for %s.\n", wine_dbgstr_w(themes[i].classname),
+                  wine_dbgstr_w(classlist));
 
             SetPropW(hwnd, THEME_PROPERTY, &themes[i]);
-
             return &themes[i];
         }
     }
 
-    WINE_FIXME("No matching theme for %s.\n", wine_dbgstr_w(classlist));
-
+    FIXME("No matching theme for %s.\n", wine_dbgstr_w(classlist));
     SetLastError(ERROR_NOT_FOUND);
-
     return NULL;
 }
 
 void WINAPI SetThemeAppProperties(DWORD flags)
 {
+    TRACE("(%u)\n", flags);
     /* Do nothing */
 }
 
 HRESULT WINAPI SetWindowTheme(HWND hwnd, LPCWSTR sub_app_name,
                               LPCWSTR sub_id_list)
 {
+    TRACE("(%p, %s, %s)\n", hwnd, wine_dbgstr_w(sub_app_name),
+          wine_dbgstr_w(sub_id_list));
+
     return E_NOTIMPL;
 }
 
-HRESULT WINAPI GetThemeBool(HTHEME htheme,
-                            int part_id, int state_id,
+HRESULT WINAPI GetThemeBool(HTHEME htheme, int part_id, int state_id,
                             int prop_id, BOOL *value)
 {
+    TRACE("(%p, %d, %d, %d, %p)\n", htheme, part_id, state_id, prop_id, value);
     return E_NOTIMPL;
 }
 
-HRESULT WINAPI GetThemeColor(HTHEME htheme,
-                             int part_id, int state_id,
+HRESULT WINAPI GetThemeColor(HTHEME htheme, int part_id, int state_id,
                              int prop_id, COLORREF *color)
 {
     HRESULT hr;
     GdkRGBA rgba;
-
     theme_t *theme = GET_THEME(htheme);
+
+    TRACE("(%p, %d, %d, %d, %p)\n", htheme, part_id, state_id, prop_id, color);
 
     if (theme == NULL || theme->get_color == NULL)
         return E_HANDLE;
@@ -596,7 +618,8 @@ HRESULT WINAPI GetThemeColor(HTHEME htheme,
 
     hr = theme->get_color(part_id, state_id, prop_id, &rgba);
 
-    if (SUCCEEDED(hr) && rgba.alpha > 0) {
+    if (SUCCEEDED(hr) && rgba.alpha > 0)
+    {
         *color = GDKRGBA_TO_COLORREF(rgba);
         return S_OK;
     }
@@ -604,97 +627,113 @@ HRESULT WINAPI GetThemeColor(HTHEME htheme,
     return E_FAIL;
 }
 
-HRESULT WINAPI GetThemeEnumValue(HTHEME htheme,
-                                 int part_id, int state_id,
+HRESULT WINAPI GetThemeEnumValue(HTHEME htheme, int part_id, int state_id,
                                  int prop_id, int *value)
 {
+    TRACE("(%p, %d, %d, %d, %p)\n", htheme, part_id, state_id, prop_id, value);
     return E_NOTIMPL;
 }
 
-HRESULT WINAPI GetThemeFilename(HTHEME htheme,
-                                int part_id, int state_id,
+HRESULT WINAPI GetThemeFilename(HTHEME htheme, int part_id, int state_id,
                                 int prop_id, LPWSTR filename, int maxlen)
 {
+    TRACE("(%p, %d, %d, %d, %p, %d)\n", htheme, part_id, state_id, prop_id,
+          filename, maxlen);
+
     return E_NOTIMPL;
 }
 
-HRESULT WINAPI GetThemeFont(HTHEME htheme, HDC hdc,
-                            int part_id, int state_id,
+HRESULT WINAPI GetThemeFont(HTHEME htheme, HDC hdc, int part_id, int state_id,
                             int prop_id, LOGFONTW *font)
 {
+    TRACE("(%p, %d, %d, %d, %p)\n", htheme, part_id, state_id, prop_id, font);
+
     /* I have tried to implement this, but it looks very ugly, since not all
      * controls use this themed font.
      */
     return E_NOTIMPL;
 }
 
-HRESULT WINAPI GetThemeInt(HTHEME htheme,
-                           int part_id, int state_id,
+HRESULT WINAPI GetThemeInt(HTHEME htheme, int part_id, int state_id,
                            int prop_id, int *value)
 {
+    TRACE("(%p, %d, %d, %d, %p)\n", htheme, part_id, state_id, prop_id, value);
+
     return E_NOTIMPL;
 }
 
-HRESULT WINAPI GetThemeIntList(HTHEME htheme,
-                               int part_id, int state_id,
+HRESULT WINAPI GetThemeIntList(HTHEME htheme, int part_id, int state_id,
                                int prop_id, INTLIST *intlist)
 {
+    TRACE("(%p, %d, %d, %d, %p)\n", htheme, part_id, state_id, prop_id, intlist);
+
     return E_NOTIMPL;
 }
 
-HRESULT WINAPI GetThemeMargins(HTHEME htheme, HDC hdc,
-                               int part_id, int state_id,
+HRESULT WINAPI GetThemeMargins(HTHEME htheme, HDC hdc, int part_id, int state_id,
                                int prop_id, LPRECT rect, MARGINS *margins)
 {
+    TRACE("(%p, %d, %d, %d, %p, %p)\n", htheme, part_id, state_id, prop_id, rect, margins);
+
     memset(margins, 0, sizeof(MARGINS)); /* Just set all margins to 0 */
 
     return S_OK;
 }
 
-HRESULT WINAPI GetThemeMetric(HTHEME htheme, HDC hdc,
-                              int part_id, int state_id,
+HRESULT WINAPI GetThemeMetric(HTHEME htheme, HDC hdc, int part_id, int state_id,
                               int prop_id, int *value)
 {
+    TRACE("(%p, %d, %d, %d, %p)\n", htheme, part_id, state_id, prop_id, value);
+
     return E_NOTIMPL;
 }
 
-HRESULT WINAPI GetThemePosition(HTHEME htheme,
-                                int part_id, int state_id,
+HRESULT WINAPI GetThemePosition(HTHEME htheme, int part_id, int state_id,
                                 int prop_id, POINT *point)
 {
+    TRACE("(%p, %d, %d, %d, %p)\n", htheme, part_id, state_id, prop_id, point);
+
     return E_NOTIMPL;
 }
 
-HRESULT WINAPI GetThemePropertyOrigin(HTHEME htheme,
-                                      int part_id, int state_id,
+HRESULT WINAPI GetThemePropertyOrigin(HTHEME htheme, int part_id, int state_id,
                                       int prop_id, PROPERTYORIGIN *origin)
 {
+    TRACE("(%p, %d, %d, %d, %p)\n", htheme, part_id, state_id, prop_id, origin);
+
     return E_NOTIMPL;
 }
 
-HRESULT WINAPI GetThemeRect(HTHEME htheme,
-                            int part_id, int state_id,
+HRESULT WINAPI GetThemeRect(HTHEME htheme, int part_id, int state_id,
                             int prop_id, RECT *rect)
 {
+    TRACE("(%p, %d, %d, %d, %p)\n", htheme, part_id, state_id, prop_id, rect);
+
     return E_NOTIMPL;
 }
 
-HRESULT WINAPI GetThemeString(HTHEME htheme,
-                              int part_id, int state_id,
+HRESULT WINAPI GetThemeString(HTHEME htheme, int part_id, int state_id,
                               int prop_id, LPWSTR buffer, int maxlen)
 {
+    TRACE("(%p, %d, %d, %d, %p, %d)\n", htheme, part_id, state_id, prop_id, buffer,
+          maxlen);
+
     return E_NOTIMPL;
 }
 
-HRESULT WINAPI GetThemeTransitionDuration(HTHEME htheme, int part_id,
-                                          int state_id_from, int state_id_to,
-                                          int prop_id, DWORD *duration)
+HRESULT WINAPI GetThemeTransitionDuration(HTHEME htheme, int part_id, int state_id_from,
+                                          int state_id_to, int prop_id, DWORD *duration)
 {
+    TRACE("(%p, %d, %d, %d, %d, %p)\n", htheme, part_id, state_id_from, state_id_to, prop_id,
+          duration);
+
     return E_NOTIMPL;
 }
 
 BOOL WINAPI GetThemeSysBool(HTHEME htheme, int bool_id)
 {
+    TRACE("(%p, %d)\n", htheme, bool_id);
+
     SetLastError(ERROR_NOT_SUPPORTED);
 
     return FALSE;
@@ -704,74 +743,77 @@ COLORREF WINAPI GetThemeSysColor(HTHEME htheme, int color_id)
 {
     GdkRGBA rgba;
 
-    switch (color_id) {
-    case COLOR_BTNFACE:
-    case COLOR_SCROLLBAR:
-    case COLOR_WINDOWFRAME:
-    case COLOR_INACTIVECAPTION:
-    case COLOR_GRADIENTINACTIVECAPTION:
-    case COLOR_3DDKSHADOW:
-    case COLOR_BTNHIGHLIGHT:
-    case COLOR_ACTIVEBORDER:
-    case COLOR_INACTIVEBORDER:
-    case COLOR_APPWORKSPACE:
-    case COLOR_BACKGROUND:
-    case COLOR_ACTIVECAPTION:
-    case COLOR_GRADIENTACTIVECAPTION:
-    case COLOR_ALTERNATEBTNFACE:
-    case COLOR_INFOBK: /* FIXME */
-        uxgtk_window_get_color(WP_DIALOG, 0, TMT_FILLCOLOR, &rgba);
-        break;
+    TRACE("(%p, %d)\n", htheme, color_id);
 
-    case COLOR_3DLIGHT:
-    case COLOR_BTNSHADOW:
-        uxgtk_button_get_color(BP_PUSHBUTTON, PBS_NORMAL,
-                               TMT_BORDERCOLOR, &rgba);
-        break;
+    switch (color_id)
+    {
+        case COLOR_BTNFACE:
+        case COLOR_SCROLLBAR:
+        case COLOR_WINDOWFRAME:
+        case COLOR_INACTIVECAPTION:
+        case COLOR_GRADIENTINACTIVECAPTION:
+        case COLOR_3DDKSHADOW:
+        case COLOR_BTNHIGHLIGHT:
+        case COLOR_ACTIVEBORDER:
+        case COLOR_INACTIVEBORDER:
+        case COLOR_APPWORKSPACE:
+        case COLOR_BACKGROUND:
+        case COLOR_ACTIVECAPTION:
+        case COLOR_GRADIENTACTIVECAPTION:
+        case COLOR_ALTERNATEBTNFACE:
+        case COLOR_INFOBK: /* FIXME */
+            uxgtk_window_get_color(WP_DIALOG, 0, TMT_FILLCOLOR, &rgba);
+            break;
 
-    case COLOR_BTNTEXT:
-    case COLOR_INFOTEXT:
-    case COLOR_WINDOWTEXT:
-    case COLOR_CAPTIONTEXT:
-        uxgtk_window_get_color(WP_DIALOG, 0, TMT_TEXTCOLOR, &rgba);
-        break;
+        case COLOR_3DLIGHT:
+        case COLOR_BTNSHADOW:
+            uxgtk_button_get_color(BP_PUSHBUTTON, PBS_NORMAL,
+                                   TMT_BORDERCOLOR, &rgba);
+            break;
 
-    case COLOR_HIGHLIGHTTEXT:
-        uxgtk_edit_get_color(EP_EDITTEXT, ETS_SELECTED, TMT_TEXTCOLOR, &rgba);
-        break;
+        case COLOR_BTNTEXT:
+        case COLOR_INFOTEXT:
+        case COLOR_WINDOWTEXT:
+        case COLOR_CAPTIONTEXT:
+            uxgtk_window_get_color(WP_DIALOG, 0, TMT_TEXTCOLOR, &rgba);
+            break;
 
-    case COLOR_GRAYTEXT:
-    case COLOR_INACTIVECAPTIONTEXT:
-        uxgtk_button_get_color(BP_PUSHBUTTON, PBS_DISABLED,
-                               TMT_TEXTCOLOR, &rgba);
-        break;
+        case COLOR_HIGHLIGHTTEXT:
+            uxgtk_edit_get_color(EP_EDITTEXT, ETS_SELECTED, TMT_TEXTCOLOR, &rgba);
+            break;
 
-    case COLOR_HIGHLIGHT:
-    case COLOR_MENUHILIGHT:
-    case COLOR_HOTLIGHT:
-        uxgtk_edit_get_color(EP_EDITTEXT, ETS_SELECTED, TMT_FILLCOLOR, &rgba);
-        break;
+        case COLOR_GRAYTEXT:
+        case COLOR_INACTIVECAPTIONTEXT:
+            uxgtk_button_get_color(BP_PUSHBUTTON, PBS_DISABLED,
+                                   TMT_TEXTCOLOR, &rgba);
+            break;
 
-    case COLOR_MENUBAR:
-        uxgtk_menu_get_color(MENU_BARBACKGROUND, MB_ACTIVE,
-                             TMT_FILLCOLOR, &rgba);
-        break;
+        case COLOR_HIGHLIGHT:
+        case COLOR_MENUHILIGHT:
+        case COLOR_HOTLIGHT:
+            uxgtk_edit_get_color(EP_EDITTEXT, ETS_SELECTED, TMT_FILLCOLOR, &rgba);
+            break;
 
-    case COLOR_MENU:
-        uxgtk_menu_get_color(MENU_POPUPBACKGROUND, 0, TMT_FILLCOLOR, &rgba);
-        break;
+        case COLOR_MENUBAR:
+            uxgtk_menu_get_color(MENU_BARBACKGROUND, MB_ACTIVE,
+                                 TMT_FILLCOLOR, &rgba);
+            break;
 
-    case COLOR_MENUTEXT:
-        uxgtk_menu_get_color(MENU_POPUPITEM, MPI_NORMAL, TMT_TEXTCOLOR, &rgba);
-        break;
+        case COLOR_MENU:
+            uxgtk_menu_get_color(MENU_POPUPBACKGROUND, 0, TMT_FILLCOLOR, &rgba);
+            break;
 
-    case COLOR_WINDOW:
-        uxgtk_edit_get_color(EP_EDITTEXT, ETS_NORMAL, TMT_FILLCOLOR, &rgba);
-        break;
+        case COLOR_MENUTEXT:
+            uxgtk_menu_get_color(MENU_POPUPITEM, MPI_NORMAL, TMT_TEXTCOLOR, &rgba);
+            break;
 
-    default:
-        WINE_FIXME("Unknown color %d.\n", color_id);
-        return GetSysColor(color_id);
+        case COLOR_WINDOW:
+            uxgtk_edit_get_color(EP_EDITTEXT, ETS_NORMAL, TMT_FILLCOLOR, &rgba);
+            break;
+
+        default:
+            FIXME("Unknown color %d.\n", color_id);
+            return GetSysColor(color_id);
     }
 
     if (rgba.alpha <= 0)
@@ -782,11 +824,15 @@ COLORREF WINAPI GetThemeSysColor(HTHEME htheme, int color_id)
 
 HBRUSH WINAPI GetThemeSysColorBrush(HTHEME htheme, int color_id)
 {
+    TRACE("(%p, %d)\n", htheme, color_id);
+
     return CreateSolidBrush(GetThemeSysColor(htheme, color_id));
 }
 
 HRESULT WINAPI GetThemeSysFont(HTHEME htheme, int font_id, LOGFONTW *font)
 {
+    TRACE("(%p, %d, %p)\n", htheme, font_id, font);
+
     return E_NOTIMPL; /* See GetThemeFont */
 }
 
@@ -797,6 +843,8 @@ HRESULT WINAPI GetThemeSysInt(HTHEME htheme, int int_id, int *value)
 
 int WINAPI GetThemeSysSize(HTHEME htheme, int size_id)
 {
+    TRACE("(%p, %d)\n", htheme, size_id);
+ 
     SetLastError(ERROR_NOT_SUPPORTED);
 
     return -1;
@@ -805,18 +853,22 @@ int WINAPI GetThemeSysSize(HTHEME htheme, int size_id)
 HRESULT WINAPI GetThemeSysString(HTHEME htheme, int string_id,
                                  LPWSTR buffer, int maxlen)
 {
+    TRACE("(%p, %d, %p, %d)\n", htheme, string_id, buffer, maxlen);
+
     return E_NOTIMPL;
 }
 
-HRESULT WINAPI DrawThemeBackground(HTHEME htheme, HDC hdc,
-                                   int part_id, int state_id,
+HRESULT WINAPI DrawThemeBackground(HTHEME htheme, HDC hdc, int part_id, int state_id,
                                    LPCRECT rect, LPCRECT clip_rect)
 {
     DTBGOPTS opts;
     opts.dwSize = sizeof(DTBGOPTS);
     opts.dwFlags = 0;
 
-    if (clip_rect != NULL) {
+    TRACE("(%p, %p, %d, %d, %p, %p)\n", htheme, hdc, part_id, state_id, rect, clip_rect);
+
+    if (clip_rect != NULL)
+    {
         opts.dwFlags = DTBG_CLIPRECT;
         CopyRect(&opts.rcClip, clip_rect);
     }
@@ -824,15 +876,15 @@ HRESULT WINAPI DrawThemeBackground(HTHEME htheme, HDC hdc,
     return DrawThemeBackgroundEx(htheme, hdc, part_id, state_id, rect, &opts);
 }
 
-HRESULT WINAPI DrawThemeBackgroundEx(HTHEME htheme, HDC hdc,
-                                     int part_id, int state_id,
+HRESULT WINAPI DrawThemeBackgroundEx(HTHEME htheme, HDC hdc, int part_id, int state_id,
                                      LPCRECT rect, const DTBGOPTS *options)
 {
     cairo_t *cr;
     cairo_surface_t *surface;
     int x, y, width, height;
-
     theme_t *theme = GET_THEME(htheme);
+
+    TRACE("(%p, %p, %d, %d, %p, %p)\n", htheme, hdc, part_id, state_id, rect, options);
 
     if (theme == NULL || theme->draw_background == NULL)
         return E_HANDLE;
@@ -856,27 +908,35 @@ HRESULT WINAPI DrawThemeBackgroundEx(HTHEME htheme, HDC hdc,
     return S_OK;
 }
 
-HRESULT WINAPI DrawThemeEdge(HTHEME htheme, HDC hdc,
-                             int part_id, int state_id,
+HRESULT WINAPI DrawThemeEdge(HTHEME htheme, HDC hdc, int part_id, int state_id,
                              LPCRECT dest_rect, UINT edge, UINT flags,
                              LPRECT content_rect)
 {
+    TRACE("(%p, %p, %d, %d, %p, %u, %u, %p)\n", htheme, hdc, part_id, state_id,
+          dest_rect, edge, flags, content_rect);
+
     return E_NOTIMPL;
 }
 
-HRESULT WINAPI DrawThemeIcon(HTHEME htheme, HDC hdc,
-                             int part_id, int state_id,
+HRESULT WINAPI DrawThemeIcon(HTHEME htheme, HDC hdc, int part_id, int state_id,
                              LPCRECT rect, HIMAGELIST list, int index)
 {
+    TRACE("(%p, %p, %d, %d, %p, %p, %d)\n", htheme, hdc, part_id, state_id, rect, list, index);
+
     return E_NOTIMPL;
 }
 
 HRESULT WINAPI DrawThemeParentBackground(HWND hwnd, HDC hdc, RECT *rect)
 {
-    HWND parent = GetParent(hwnd);
+    HWND parent;
 
-    if (parent == NULL) {
-        WINE_ERR("Window has no parent.\n");
+    TRACE("(%p, %p, %p)\n", hwnd, hdc, rect);
+
+    parent = GetParent(hwnd);
+
+    if (!parent)
+    {
+        ERR("Window has no parent.\n");
         return E_FAIL;
     }
 
@@ -886,24 +946,26 @@ HRESULT WINAPI DrawThemeParentBackground(HWND hwnd, HDC hdc, RECT *rect)
     return S_OK;
 }
 
-HRESULT WINAPI DrawThemeText(HTHEME htheme, HDC hdc,
-                             int part_id, int state_id,
-                             LPCWSTR text, int lenght,
-                             DWORD flags, DWORD flags2,
+HRESULT WINAPI DrawThemeText(HTHEME htheme, HDC hdc, int part_id, int state_id,
+                             LPCWSTR text, int length, DWORD flags, DWORD flags2,
                              LPCRECT rect)
 {
     RECT rt;
     HRESULT hr;
     COLORREF color = RGB(0, 0, 0), oldcolor;
 
+    TRACE("(%p, %p, %d, %d, %s, %u, %u, %p)\n", htheme, hdc, part_id, state_id,
+          wine_dbgstr_wn(text, length), flags, flags2, rect);
+
     hr = GetThemeColor(htheme, part_id, state_id, TMT_TEXTCOLOR, &color);
 
-    if (FAILED(hr)) {
+    if (FAILED(hr))
+    {
         theme_t *theme = GET_THEME(htheme);
 
-        WINE_FIXME("No color for (%s, %d, %d).\n",
-                   wine_dbgstr_w(theme == NULL ? NULL : theme->classname),
-                   part_id, state_id);
+        FIXME("No color for (%s, %d, %d).\n",
+              wine_dbgstr_w(theme == NULL ? NULL : theme->classname),
+              part_id, state_id);
 
         /*return hr;*/
     }
@@ -913,20 +975,21 @@ HRESULT WINAPI DrawThemeText(HTHEME htheme, HDC hdc,
     CopyRect(&rt, rect);
 
     SetBkMode(hdc, TRANSPARENT);
-    DrawTextW(hdc, text, lenght, &rt, flags);
+    DrawTextW(hdc, text, length, &rt, flags);
 
     SetTextColor(hdc, oldcolor);
 
     return S_OK;
 }
 
-HRESULT WINAPI GetThemeBackgroundContentRect(HTHEME htheme, HDC hdc,
-                                             int part_id, int state_id,
-                                             LPCRECT bounding_rect,
-                                             LPRECT content_rect)
+HRESULT WINAPI GetThemeBackgroundContentRect(HTHEME htheme, HDC hdc, int part_id, int state_id,
+                                             LPCRECT bounding_rect, LPRECT content_rect)
 {
     HRESULT hr;
     MARGINS margins;
+
+    TRACE("(%p, %p, %d, %d, %p, %p)\n", htheme, hdc, part_id, state_id, bounding_rect,
+          content_rect);
 
     if (bounding_rect == NULL || content_rect == NULL)
         return E_INVALIDARG;
@@ -945,12 +1008,14 @@ HRESULT WINAPI GetThemeBackgroundContentRect(HTHEME htheme, HDC hdc,
     return S_OK;
 }
 
-HRESULT WINAPI GetThemeBackgroundExtent(HTHEME htheme, HDC hdc,
-                                        int part_id, int state_id,
+HRESULT WINAPI GetThemeBackgroundExtent(HTHEME htheme, HDC hdc, int part_id, int state_id,
                                         LPCRECT content_rect, RECT *extent_rect)
 {
     HRESULT hr;
     MARGINS margins;
+
+    TRACE("(%p, %p, %d, %d, %p, %p)\n", htheme, hdc, part_id, state_id, content_rect,
+          extent_rect);
 
     if (content_rect == NULL || extent_rect == NULL)
         return E_INVALIDARG;
@@ -969,18 +1034,20 @@ HRESULT WINAPI GetThemeBackgroundExtent(HTHEME htheme, HDC hdc,
     return S_OK;
 }
 
-HRESULT WINAPI GetThemeBackgroundRegion(HTHEME htheme, HDC hdc,
-                                        int part_id, int state_id,
+HRESULT WINAPI GetThemeBackgroundRegion(HTHEME htheme, HDC hdc, int part_id, int state_id,
                                         LPCRECT rect, HRGN *region)
 {
+    TRACE("(%p, %p, %d, %d, %p, %p)\n", htheme, hdc, part_id, state_id, rect, region);
+
     return E_NOTIMPL;
 }
 
-HRESULT WINAPI GetThemePartSize(HTHEME htheme, HDC hdc,
-                                int part_id, int state_id,
+HRESULT WINAPI GetThemePartSize(HTHEME htheme, HDC hdc, int part_id, int state_id,
                                 RECT *rect, THEMESIZE type, SIZE *size)
 {
     theme_t *theme = GET_THEME(htheme);
+
+    TRACE("(%p, %p, %d, %d, %p, %d, %p)\n", htheme, hdc, part_id, state_id, rect, type, size);
 
     if (theme == NULL || theme->get_part_size == NULL)
         return E_HANDLE;
@@ -991,35 +1058,41 @@ HRESULT WINAPI GetThemePartSize(HTHEME htheme, HDC hdc,
     return theme->get_part_size(part_id, state_id, rect, size);
 }
 
-HRESULT WINAPI GetThemeTextExtent(HTHEME htheme, HDC hdc,
-                                  int part_id, int state_id,
-                                  LPCWSTR text, int lenght, DWORD flags,
+HRESULT WINAPI GetThemeTextExtent(HTHEME htheme, HDC hdc, int part_id, int state_id,
+                                  LPCWSTR text, int length, DWORD flags,
                                   LPCRECT bounding_rect, LPRECT extent_rect)
 {
+    TRACE("(%p, %p, %d, %d, %s, %u, %p, %p)\n", htheme, hdc, part_id, state_id,
+          wine_dbgstr_wn(text, length), flags, bounding_rect, extent_rect);
+
     return E_NOTIMPL;
 }
 
-HRESULT WINAPI GetThemeTextMetrics(HTHEME htheme, HDC hdc,
-                                   int part_id, int state_id,
+HRESULT WINAPI GetThemeTextMetrics(HTHEME htheme, HDC hdc, int part_id, int state_id,
                                    TEXTMETRICW *metric)
 {
+    TRACE("(%p, %p, %d, %d, %p,)\n", htheme, hdc, part_id, state_id, metric);
+
     if (!GetTextMetricsW(hdc, metric))
         return HRESULT_FROM_WIN32(GetLastError());
 
     return S_OK;
 }
 
-HRESULT WINAPI HitTestThemeBackground(HTHEME htheme, HDC hdc,
-                                      int part_id, int state_id,
+HRESULT WINAPI HitTestThemeBackground(HTHEME htheme, HDC hdc, int part_id, int state_id,
                                       DWORD options, LPCRECT rect, HRGN hrgn,
                                       POINT point, WORD *hit_test_code)
 {
+    TRACE("(%p, %p, %d, %d, %u, %p, %p, (%d, %d), %p)\n", htheme, hdc, part_id, state_id, options,
+          rect, hrgn, point.x, point.y, hit_test_code);
+
     return E_NOTIMPL;
 }
 
-BOOL WINAPI IsThemeBackgroundPartiallyTransparent(HTHEME htheme,
-                                                  int part_id, int state_id)
+BOOL WINAPI IsThemeBackgroundPartiallyTransparent(HTHEME htheme, int part_id, int state_id)
 {
+    TRACE("(%p, %d, %d)\n", htheme, part_id, state_id);
+
     return TRUE; /* The most widgets are partially transparent */
 }
 
@@ -1027,7 +1100,10 @@ BOOL WINAPI IsThemePartDefined(HTHEME htheme, int part_id, int state_id)
 {
     theme_t *theme = GET_THEME(htheme);
 
-    if (theme == NULL || theme->is_part_defined == NULL) {
+    TRACE("(%p, %d, %d)\n", htheme, part_id, state_id);
+
+    if (theme == NULL || theme->is_part_defined == NULL)
+    {
         SetLastError(ERROR_INVALID_HANDLE);
         return FALSE;
     }
@@ -1037,16 +1113,15 @@ BOOL WINAPI IsThemePartDefined(HTHEME htheme, int part_id, int state_id)
 
 BOOL WINAPI DllMain(HINSTANCE hinstance, DWORD reason, LPVOID reserved)
 {
-    switch (reason) {
-    case DLL_PROCESS_ATTACH:
-        return init();
+    switch (reason)
+    {
+        case DLL_PROCESS_ATTACH:
+            return init();
 
-    case DLL_PROCESS_DETACH:
-        uninit();
-        return TRUE;
+        case DLL_PROCESS_DETACH:
+            uninit();
+            return TRUE;
     }
 
     return FALSE;
 }
-
-/* vim: set expandtab tabstop=8 shiftwidth=4 softtabstop=4: */
