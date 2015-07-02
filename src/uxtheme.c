@@ -271,6 +271,7 @@ static void free_gtk3_libs(void)
     if (libgdk3) wine_dlclose(libgdk3, NULL, 0);
     if (libcairo) wine_dlclose(libcairo, NULL, 0);
     if (libgobject2) wine_dlclose(libgobject2, NULL, 0);
+    libgtk3 = libgdk3 = libcairo = libgobject2 = NULL;
 }
 
 #define LOAD_FUNCPTR(lib, f) \
@@ -1071,7 +1072,7 @@ HRESULT WINAPI GetThemeTextExtent(HTHEME htheme, HDC hdc, int part_id, int state
 HRESULT WINAPI GetThemeTextMetrics(HTHEME htheme, HDC hdc, int part_id, int state_id,
                                    TEXTMETRICW *metric)
 {
-    TRACE("(%p, %p, %d, %d, %p,)\n", htheme, hdc, part_id, state_id, metric);
+    TRACE("(%p, %p, %d, %d, %p)\n", htheme, hdc, part_id, state_id, metric);
 
     if (!GetTextMetricsW(hdc, metric))
         return HRESULT_FROM_WIN32(GetLastError());

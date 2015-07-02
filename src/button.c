@@ -179,7 +179,8 @@ static void get_border_color(GdkRGBA *rgba)
     pgtk_style_context_get_border_color(button_context, GTK_STATE_FLAG_NORMAL, rgba);
 
     /* Fail. Render our frame in a small surface and try to get its color again. */
-    if (rgba->alpha <= 0) {
+    if (rgba->alpha <= 0)
+    {
         unsigned char *data;
         cairo_surface_t *surface =
             pcairo_image_surface_create(CAIRO_FORMAT_ARGB32, 10, 10);
