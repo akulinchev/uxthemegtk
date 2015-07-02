@@ -23,8 +23,6 @@
 #include <vsstyle.h>
 #include <wine/debug.h>
 
-#include <gtk/gtk.h>
-
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
 #define ARROW_DOWN G_PI
@@ -47,36 +45,36 @@ static void draw_dropdown_button(cairo_t *cr, int state_id,
     GtkStateFlags state = state_id == CBXSR_DISABLED
         ? GTK_STATE_FLAG_INSENSITIVE : GTK_STATE_FLAG_NORMAL;
 
-    gtk_style_context_save(context);
+    pgtk_style_context_save(context);
 
-    gtk_style_context_set_state(context, state);
+    pgtk_style_context_set_state(context, state);
 
     /* It's hard to place a real button here. So, just draw an arrow. */
     arrow_x = (width - ARROW_WIDTH) / 2;
     arrow_y = (height - ARROW_HEIGHT) / 2;
-    gtk_render_arrow(context, cr, ARROW_DOWN, arrow_x, arrow_y, ARROW_WIDTH);
+    pgtk_render_arrow(context, cr, ARROW_DOWN, arrow_x, arrow_y, ARROW_WIDTH);
 
-    gtk_style_context_restore(context);
+    pgtk_style_context_restore(context);
 }
 
 void uxgtk_combobox_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = gtk_widget_path_new();
-    int pos = gtk_widget_path_append_type(path, GTK_TYPE_COMBO_BOX);
+    GtkWidgetPath *path = pgtk_widget_path_new();
+    int pos = pgtk_widget_path_append_type(path, pgtk_combo_box_get_type());
 
-    gtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_COMBOBOX_ENTRY);
+    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_COMBOBOX_ENTRY);
 
-    pos = gtk_widget_path_append_type(path, GTK_TYPE_BUTTON);
-    gtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_BUTTON);
+    pos = pgtk_widget_path_append_type(path, pgtk_button_get_type());
+    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_BUTTON);
 
-    context = gtk_style_context_new();
-    gtk_style_context_set_path(context, path);
-    gtk_style_context_set_screen(context, screen);
+    context = pgtk_style_context_new();
+    pgtk_style_context_set_path(context, path);
+    pgtk_style_context_set_screen(context, screen);
 }
 
 void uxgtk_combobox_uninit(void)
 {
-    g_object_unref(context);
+    pg_object_unref(context);
 }
 
 void uxgtk_combobox_draw_background(cairo_t *cr,

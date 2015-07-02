@@ -23,8 +23,6 @@
 #include <vsstyle.h>
 #include <wine/debug.h>
 
-#include <gtk/gtk.h>
-
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
 static GtkStyleContext *context = NULL;
@@ -38,45 +36,45 @@ static void draw_header_item(cairo_t *cr, int state_id, int width, int height)
     else if (state_id == HIS_PRESSED)
         state = GTK_STATE_FLAG_ACTIVE;
 
-    gtk_style_context_set_state(context, state);
+    pgtk_style_context_set_state(context, state);
 
-    gtk_render_background(context, cr, 0, 0, width, height);
-    gtk_render_frame(context, cr, 0, 0, width, height);
+    pgtk_render_background(context, cr, 0, 0, width, height);
+    pgtk_render_frame(context, cr, 0, 0, width, height);
 }
 
 void uxgtk_header_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = gtk_widget_path_new();
-    int pos = gtk_widget_path_append_type(path, GTK_TYPE_TREE_VIEW);
+    GtkWidgetPath *path = pgtk_widget_path_new();
+    int pos = pgtk_widget_path_append_type(path, pgtk_tree_view_get_type());
 
-    gtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_VIEW);
-    gtk_widget_path_iter_add_region(path, pos, GTK_STYLE_REGION_COLUMN_HEADER, 0);
+    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_VIEW);
+    pgtk_widget_path_iter_add_region(path, pos, GTK_STYLE_REGION_COLUMN_HEADER, 0);
 
-    pos = gtk_widget_path_append_type(path, GTK_TYPE_BUTTON);
-    gtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_BUTTON);
+    pos = pgtk_widget_path_append_type(path, pgtk_button_get_type());
+    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_BUTTON);
 
-    context = gtk_style_context_new();
-    gtk_style_context_set_path(context, path);
-    gtk_style_context_set_screen(context, screen);
+    context = pgtk_style_context_new();
+    pgtk_style_context_set_path(context, path);
+    pgtk_style_context_set_screen(context, screen);
 }
 
 void uxgtk_header_uninit(void)
 {
-    g_object_unref(context);
+    pg_object_unref(context);
 }
 
 void uxgtk_header_draw_background(cairo_t *cr,
                                   int part_id, int state_id,
                                   int width, int height)
 {
-    gtk_style_context_save(context);
+    pgtk_style_context_save(context);
 
     if (part_id == HP_HEADERITEM)
         draw_header_item(cr, state_id, width, height);
     else
         WINE_FIXME("Unsupported header part %d.\n", part_id);
 
-    gtk_style_context_restore(context);
+    pgtk_style_context_restore(context);
 }
 
 BOOL uxgtk_header_is_part_defined(int part_id, int state_id)

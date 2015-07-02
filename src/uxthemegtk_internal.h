@@ -23,6 +23,61 @@
 
 #include <windef.h>
 #include <gdk/gdk.h>
+#include <gtk/gtk.h>
+
+#define MAKE_FUNCPTR(f) extern typeof(f) * p##f DECLSPEC_HIDDEN
+MAKE_FUNCPTR(cairo_create);
+MAKE_FUNCPTR(cairo_destroy);
+MAKE_FUNCPTR(cairo_image_surface_create);
+MAKE_FUNCPTR(cairo_image_surface_get_data);
+MAKE_FUNCPTR(cairo_surface_destroy);
+MAKE_FUNCPTR(cairo_surface_flush);
+MAKE_FUNCPTR(g_object_unref);
+MAKE_FUNCPTR(gdk_screen_get_default);
+MAKE_FUNCPTR(gtk_button_get_type);
+MAKE_FUNCPTR(gtk_check_button_get_type);
+MAKE_FUNCPTR(gtk_combo_box_get_type);
+MAKE_FUNCPTR(gtk_entry_get_type);
+MAKE_FUNCPTR(gtk_init);
+MAKE_FUNCPTR(gtk_label_get_type);
+MAKE_FUNCPTR(gtk_menu_bar_get_type);
+MAKE_FUNCPTR(gtk_menu_get_type);
+MAKE_FUNCPTR(gtk_menu_item_get_type);
+MAKE_FUNCPTR(gtk_notebook_get_type);
+MAKE_FUNCPTR(gtk_radio_button_get_type);
+MAKE_FUNCPTR(gtk_render_arrow);
+MAKE_FUNCPTR(gtk_render_background);
+MAKE_FUNCPTR(gtk_render_check);
+MAKE_FUNCPTR(gtk_render_frame);
+MAKE_FUNCPTR(gtk_render_handle);
+MAKE_FUNCPTR(gtk_render_line);
+MAKE_FUNCPTR(gtk_render_option);
+MAKE_FUNCPTR(gtk_render_slider);
+MAKE_FUNCPTR(gtk_scale_get_type);
+MAKE_FUNCPTR(gtk_scrolled_window_get_type);
+MAKE_FUNCPTR(gtk_separator_get_type);
+MAKE_FUNCPTR(gtk_style_context_add_class);
+MAKE_FUNCPTR(gtk_style_context_add_region);
+MAKE_FUNCPTR(gtk_style_context_get_background_color);
+MAKE_FUNCPTR(gtk_style_context_get_border_color);
+MAKE_FUNCPTR(gtk_style_context_get_color);
+MAKE_FUNCPTR(gtk_style_context_get_style);
+MAKE_FUNCPTR(gtk_style_context_new);
+MAKE_FUNCPTR(gtk_style_context_remove_class);
+MAKE_FUNCPTR(gtk_style_context_restore);
+MAKE_FUNCPTR(gtk_style_context_save);
+MAKE_FUNCPTR(gtk_style_context_set_junction_sides);
+MAKE_FUNCPTR(gtk_style_context_set_parent);
+MAKE_FUNCPTR(gtk_style_context_set_path);
+MAKE_FUNCPTR(gtk_style_context_set_screen);
+MAKE_FUNCPTR(gtk_style_context_set_state);
+MAKE_FUNCPTR(gtk_tree_view_get_type);
+MAKE_FUNCPTR(gtk_widget_path_append_type);
+MAKE_FUNCPTR(gtk_widget_path_iter_add_class);
+MAKE_FUNCPTR(gtk_widget_path_iter_add_region);
+MAKE_FUNCPTR(gtk_widget_path_new);
+MAKE_FUNCPTR(gtk_window_get_type);
+#undef MAKE_FUNCPTR
 
 /* Button */
 void uxgtk_button_init(GdkScreen *screen);

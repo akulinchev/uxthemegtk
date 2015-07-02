@@ -25,27 +25,25 @@
 #include <winerror.h>
 #include <wine/debug.h>
 
-#include <gtk/gtk.h>
-
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
 static GtkStyleContext *context = NULL;
 
 void uxgtk_window_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = gtk_widget_path_new();
-    int pos = gtk_widget_path_append_type(path, GTK_TYPE_WINDOW);
+    GtkWidgetPath *path = pgtk_widget_path_new();
+    int pos = pgtk_widget_path_append_type(path, pgtk_window_get_type());
 
-    gtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_BACKGROUND);
+    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_BACKGROUND);
 
-    context = gtk_style_context_new();
-    gtk_style_context_set_path(context, path);
-    gtk_style_context_set_screen(context, screen);
+    context = pgtk_style_context_new();
+    pgtk_style_context_set_path(context, path);
+    pgtk_style_context_set_screen(context, screen);
 }
 
 void uxgtk_window_uninit(void)
 {
-    g_object_unref(context);
+    pg_object_unref(context);
 }
 
 HRESULT uxgtk_window_get_color(int part_id, int state_id,
@@ -53,11 +51,11 @@ HRESULT uxgtk_window_get_color(int part_id, int state_id,
 {
     switch (prop_id) {
     case TMT_FILLCOLOR:
-        gtk_style_context_get_background_color(context, GTK_STATE_FLAG_NORMAL, rgba);
+        pgtk_style_context_get_background_color(context, GTK_STATE_FLAG_NORMAL, rgba);
         break;
 
     case TMT_TEXTCOLOR:
-        gtk_style_context_get_color(context, GTK_STATE_FLAG_NORMAL, rgba);
+        pgtk_style_context_get_color(context, GTK_STATE_FLAG_NORMAL, rgba);
         break;
 
     default:
@@ -73,7 +71,7 @@ void uxgtk_window_draw_background(cairo_t *cr,
                                   int width, int height)
 {
     if (part_id == WP_DIALOG)
-        gtk_render_background(context, cr, 0, 0, width, height);
+        pgtk_render_background(context, cr, 0, 0, width, height);
     else
         WINE_FIXME("Unsupported window part %d.\n", part_id);
 }

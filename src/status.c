@@ -24,8 +24,6 @@
 #include <winerror.h>
 #include <wine/debug.h>
 
-#include <gtk/gtk.h>
-
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
 static int grip_width = 0, grip_height = 0;
@@ -33,31 +31,31 @@ static GtkStyleContext *context = NULL;
 
 static void draw_pane(cairo_t *cr, int width, int height)
 {
-    gtk_style_context_add_class(context, GTK_STYLE_CLASS_BACKGROUND);
-    gtk_render_background(context, cr, 0, 0, width, height);
+    pgtk_style_context_add_class(context, GTK_STYLE_CLASS_BACKGROUND);
+    pgtk_render_background(context, cr, 0, 0, width, height);
 }
 
 static void draw_gripper(cairo_t *cr, int width, int height)
 {
-    gtk_style_context_add_class(context, GTK_STYLE_CLASS_GRIP);
-    gtk_style_context_set_junction_sides(context, GTK_JUNCTION_CORNER_BOTTOMRIGHT);
-    gtk_render_handle(context, cr, 0, 0, width, height);
+    pgtk_style_context_add_class(context, GTK_STYLE_CLASS_GRIP);
+    pgtk_style_context_set_junction_sides(context, GTK_JUNCTION_CORNER_BOTTOMRIGHT);
+    pgtk_render_handle(context, cr, 0, 0, width, height);
 }
 
 void uxgtk_status_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = gtk_widget_path_new();
+    GtkWidgetPath *path = pgtk_widget_path_new();
 
-    gtk_widget_path_append_type(path, GTK_TYPE_WINDOW);
+    pgtk_widget_path_append_type(path, pgtk_window_get_type());
 
-    context = gtk_style_context_new();
-    gtk_style_context_set_path(context, path);
-    gtk_style_context_set_screen(context, screen);
+    context = pgtk_style_context_new();
+    pgtk_style_context_set_path(context, path);
+    pgtk_style_context_set_screen(context, screen);
 
-    gtk_style_context_get_style(context,
-                                "resize-grip-width", &grip_width,
-                                "resize-grip-height", &grip_height,
-                                NULL);
+    pgtk_style_context_get_style(context,
+                                 "resize-grip-width", &grip_width,
+                                 "resize-grip-height", &grip_height,
+                                 NULL);
 
     WINE_TRACE("-GtkWindow-resize-grip-width: %d;\n"
                "-GtkWindow-resize-grip-height: %d;\n",
@@ -66,14 +64,14 @@ void uxgtk_status_init(GdkScreen *screen)
 
 void uxgtk_status_uninit(void)
 {
-    g_object_unref(context);
+    pg_object_unref(context);
 }
 
 void uxgtk_status_draw_background(cairo_t *cr,
                                   int part_id, int state_id,
                                   int width, int height)
 {
-    gtk_style_context_save(context);
+    pgtk_style_context_save(context);
 
     switch (part_id) {
     case 0:
@@ -90,7 +88,7 @@ void uxgtk_status_draw_background(cairo_t *cr,
         WINE_FIXME("Unknown status part %d.\n", part_id);
     }
 
-    gtk_style_context_restore(context);
+    pgtk_style_context_restore(context);
 }
 
 HRESULT uxgtk_status_get_part_size(int part_id, int state_id,

@@ -18,6 +18,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
+#include "wine/library.h"
+
+#include <dlfcn.h>
 #include <stdarg.h>
 #include <windef.h>
 #include <winbase.h>
@@ -30,11 +33,73 @@
 
 #include <wine/debug.h>
 
-#include <gtk/gtk.h>
-
 #include "uxthemegtk_internal.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
+
+#define SONAME_LIBGTK_3 "libgtk-3.so"
+#define SONAME_LIBGDK_3 "libgdk-3.so"
+#define SONAME_LIBCAIRO "libcairo.so"
+#define SONAME_LIBGOBJECT_2_0 "libgobject-2.0.so"
+
+static void* libgtk3 = NULL;
+static void* libgdk3 = NULL;
+static void* libcairo = NULL;
+static void* libgobject2 = NULL;
+
+#define MAKE_FUNCPTR(f) typeof(f) * p##f = NULL
+MAKE_FUNCPTR(cairo_create);
+MAKE_FUNCPTR(cairo_destroy);
+MAKE_FUNCPTR(cairo_image_surface_create);
+MAKE_FUNCPTR(cairo_image_surface_get_data);
+MAKE_FUNCPTR(cairo_surface_destroy);
+MAKE_FUNCPTR(cairo_surface_flush);
+MAKE_FUNCPTR(g_object_unref);
+MAKE_FUNCPTR(gdk_screen_get_default);
+MAKE_FUNCPTR(gtk_button_get_type);
+MAKE_FUNCPTR(gtk_check_button_get_type);
+MAKE_FUNCPTR(gtk_combo_box_get_type);
+MAKE_FUNCPTR(gtk_entry_get_type);
+MAKE_FUNCPTR(gtk_init);
+MAKE_FUNCPTR(gtk_label_get_type);
+MAKE_FUNCPTR(gtk_menu_bar_get_type);
+MAKE_FUNCPTR(gtk_menu_get_type);
+MAKE_FUNCPTR(gtk_menu_item_get_type);
+MAKE_FUNCPTR(gtk_notebook_get_type);
+MAKE_FUNCPTR(gtk_radio_button_get_type);
+MAKE_FUNCPTR(gtk_render_arrow);
+MAKE_FUNCPTR(gtk_render_background);
+MAKE_FUNCPTR(gtk_render_check);
+MAKE_FUNCPTR(gtk_render_frame);
+MAKE_FUNCPTR(gtk_render_handle);
+MAKE_FUNCPTR(gtk_render_line);
+MAKE_FUNCPTR(gtk_render_option);
+MAKE_FUNCPTR(gtk_render_slider);
+MAKE_FUNCPTR(gtk_scale_get_type);
+MAKE_FUNCPTR(gtk_scrolled_window_get_type);
+MAKE_FUNCPTR(gtk_separator_get_type);
+MAKE_FUNCPTR(gtk_style_context_add_class);
+MAKE_FUNCPTR(gtk_style_context_add_region);
+MAKE_FUNCPTR(gtk_style_context_get_background_color);
+MAKE_FUNCPTR(gtk_style_context_get_border_color);
+MAKE_FUNCPTR(gtk_style_context_get_color);
+MAKE_FUNCPTR(gtk_style_context_get_style);
+MAKE_FUNCPTR(gtk_style_context_new);
+MAKE_FUNCPTR(gtk_style_context_remove_class);
+MAKE_FUNCPTR(gtk_style_context_restore);
+MAKE_FUNCPTR(gtk_style_context_save);
+MAKE_FUNCPTR(gtk_style_context_set_junction_sides);
+MAKE_FUNCPTR(gtk_style_context_set_parent);
+MAKE_FUNCPTR(gtk_style_context_set_path);
+MAKE_FUNCPTR(gtk_style_context_set_screen);
+MAKE_FUNCPTR(gtk_style_context_set_state);
+MAKE_FUNCPTR(gtk_tree_view_get_type);
+MAKE_FUNCPTR(gtk_widget_path_append_type);
+MAKE_FUNCPTR(gtk_widget_path_iter_add_class);
+MAKE_FUNCPTR(gtk_widget_path_iter_add_region);
+MAKE_FUNCPTR(gtk_widget_path_new);
+MAKE_FUNCPTR(gtk_window_get_type);
+#undef MAKE_FUNCPTR
 
 typedef void (*init_func_t)(GdkScreen *screen);
 typedef void (*uninit_func_t)(void);
@@ -200,20 +265,134 @@ static void fix_sys_params(void)
     SystemParametersInfoW(SPI_SETFLATMENU, 0, (LPVOID)TRUE, 0);
 }
 
-static void init(void)
+static void free_gtk3_libs(void)
+{
+    if (libgtk3) wine_dlclose(libgtk3, NULL, 0);
+    if (libgdk3) wine_dlclose(libgdk3, NULL, 0);
+    if (libcairo) wine_dlclose(libcairo, NULL, 0);
+    if (libgobject2) wine_dlclose(libgobject2, NULL, 0);
+}
+
+#define LOAD_FUNCPTR(lib, f) \
+    if(!(p##f = wine_dlsym(lib, #f, NULL, 0))) \
+    { \
+        WINE_WARN("Can't find symbol %s.\n", #f); \
+        goto error; \
+    }
+
+static BOOL load_gtk3_libs(void)
+{
+    libgtk3 = wine_dlopen(SONAME_LIBGTK_3, RTLD_NOW, NULL, 0);
+    if (!libgtk3)
+    {
+        WINE_FIXME("Wine cannot find the %s library.\n", SONAME_LIBGTK_3);
+        goto error;
+    }
+
+    LOAD_FUNCPTR(libgtk3, gtk_button_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_check_button_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_combo_box_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_entry_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_init)
+    LOAD_FUNCPTR(libgtk3, gtk_label_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_menu_bar_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_menu_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_menu_item_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_notebook_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_radio_button_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_render_arrow)
+    LOAD_FUNCPTR(libgtk3, gtk_render_background)
+    LOAD_FUNCPTR(libgtk3, gtk_render_check)
+    LOAD_FUNCPTR(libgtk3, gtk_render_frame)
+    LOAD_FUNCPTR(libgtk3, gtk_render_handle)
+    LOAD_FUNCPTR(libgtk3, gtk_render_line)
+    LOAD_FUNCPTR(libgtk3, gtk_render_option)
+    LOAD_FUNCPTR(libgtk3, gtk_render_slider)
+    LOAD_FUNCPTR(libgtk3, gtk_scale_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_scrolled_window_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_separator_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_style_context_add_class)
+    LOAD_FUNCPTR(libgtk3, gtk_style_context_add_region)
+    LOAD_FUNCPTR(libgtk3, gtk_style_context_get_background_color)
+    LOAD_FUNCPTR(libgtk3, gtk_style_context_get_border_color)
+    LOAD_FUNCPTR(libgtk3, gtk_style_context_get_color)
+    LOAD_FUNCPTR(libgtk3, gtk_style_context_get_style)
+    LOAD_FUNCPTR(libgtk3, gtk_style_context_new)
+    LOAD_FUNCPTR(libgtk3, gtk_style_context_remove_class)
+    LOAD_FUNCPTR(libgtk3, gtk_style_context_restore)
+    LOAD_FUNCPTR(libgtk3, gtk_style_context_save)
+    LOAD_FUNCPTR(libgtk3, gtk_style_context_set_junction_sides)
+    LOAD_FUNCPTR(libgtk3, gtk_style_context_set_parent)
+    LOAD_FUNCPTR(libgtk3, gtk_style_context_set_path)
+    LOAD_FUNCPTR(libgtk3, gtk_style_context_set_screen)
+    LOAD_FUNCPTR(libgtk3, gtk_style_context_set_state)
+    LOAD_FUNCPTR(libgtk3, gtk_tree_view_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_widget_path_append_type)
+    LOAD_FUNCPTR(libgtk3, gtk_widget_path_iter_add_class)
+    LOAD_FUNCPTR(libgtk3, gtk_widget_path_iter_add_region)
+    LOAD_FUNCPTR(libgtk3, gtk_widget_path_new)
+    LOAD_FUNCPTR(libgtk3, gtk_window_get_type)
+
+    libgdk3 = wine_dlopen(SONAME_LIBGDK_3, RTLD_NOW, NULL, 0);
+    if (!libgdk3)
+    {
+        WINE_FIXME("Wine cannot find the %s library.\n", SONAME_LIBGDK_3);
+        goto error;
+    }
+
+    LOAD_FUNCPTR(libgdk3, gdk_screen_get_default)
+
+    libcairo = wine_dlopen(SONAME_LIBCAIRO, RTLD_NOW, NULL, 0);
+    if (!libcairo)
+    {
+        WINE_FIXME("Wine cannot find the %s library.\n", SONAME_LIBCAIRO);
+        goto error;
+    }
+
+    LOAD_FUNCPTR(libcairo, cairo_create)
+    LOAD_FUNCPTR(libcairo, cairo_destroy)
+    LOAD_FUNCPTR(libcairo, cairo_image_surface_create)
+    LOAD_FUNCPTR(libcairo, cairo_image_surface_get_data)
+    LOAD_FUNCPTR(libcairo, cairo_surface_destroy)
+    LOAD_FUNCPTR(libcairo, cairo_surface_flush)
+
+    libgobject2 = wine_dlopen(SONAME_LIBGOBJECT_2_0, RTLD_NOW, NULL, 0);
+    if (!libgobject2)
+    {
+        WINE_FIXME("Wine cannot find the %s library.\n", SONAME_LIBGOBJECT_2_0);
+        goto error;
+    }
+
+    LOAD_FUNCPTR(libgobject2, g_object_unref)
+
+    return TRUE;
+
+error:
+    free_gtk3_libs();
+    return FALSE;
+}
+
+#undef LOAD_FUNCPTR
+
+static BOOL init(void)
 {
     int i;
     GdkScreen *screen;
 
-    gtk_init(0, NULL); /* Otherwise every call to GTK will fail */
+    if (!load_gtk3_libs())
+        return FALSE;
 
-    screen = gdk_screen_get_default();
+    pgtk_init(0, NULL); /* Otherwise every call to GTK will fail */
+
+    screen = pgdk_screen_get_default();
 
     for (i = 0; i < THEMES_SIZE; i++)
         themes[i].init(screen);
 
     apply_colors();
     fix_sys_params();
+
+    return TRUE;
 }
 
 static void uninit(void)
@@ -255,9 +434,9 @@ static void paint_cairo_surface(cairo_surface_t *surface, HDC target_hdc,
     bitmap = CreateDIBSection(bitmap_hdc, &info, DIB_RGB_COLORS,
                               (void **)&bitmap_data, NULL, 0);
 
-    cairo_surface_flush(surface);
+    pcairo_surface_flush(surface);
 
-    surface_data = cairo_image_surface_get_data(surface);
+    surface_data = pcairo_image_surface_get_data(surface);
 
     for (i = 0; i < width * height * PIXEL_SIZE; i++)
         bitmap_data[i] = surface_data[i];
@@ -661,8 +840,8 @@ HRESULT WINAPI DrawThemeBackgroundEx(HTHEME htheme, HDC hdc,
     width = rect->right - rect->left;
     height = rect->bottom - rect->top;
 
-    surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
-    cr = cairo_create(surface);
+    surface = pcairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+    cr = pcairo_create(surface);
 
     theme->draw_background(cr, part_id, state_id, width, height);
 
@@ -671,8 +850,8 @@ HRESULT WINAPI DrawThemeBackgroundEx(HTHEME htheme, HDC hdc,
 
     paint_cairo_surface(surface, hdc, x, y, width, height);
 
-    cairo_destroy(cr);
-    cairo_surface_destroy(surface);
+    pcairo_destroy(cr);
+    pcairo_surface_destroy(surface);
 
     return S_OK;
 }
@@ -860,8 +1039,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstance, DWORD reason, LPVOID reserved)
 {
     switch (reason) {
     case DLL_PROCESS_ATTACH:
-        init();
-        return TRUE;
+        return init();
 
     case DLL_PROCESS_DETACH:
         uninit();

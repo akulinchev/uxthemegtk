@@ -23,8 +23,6 @@
 #include <vsstyle.h>
 #include <wine/debug.h>
 
-#include <gtk/gtk.h>
-
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
 static int tab_overlap = 0;
@@ -50,65 +48,65 @@ static void draw_tab_item(cairo_t *cr,
         region = GTK_REGION_LAST;
     else if (part_id == TABP_TABITEMBOTHEDGE || part_id == TABP_TOPTABITEMBOTHEDGE)
         region = GTK_REGION_ONLY;
-    gtk_style_context_add_region(context, GTK_STYLE_REGION_TAB, region);
+    pgtk_style_context_add_region(context, GTK_STYLE_REGION_TAB, region);
 
     /* Some themes are not friendly with the TCS_MULTILINE tabs */
-    gtk_style_context_set_junction_sides(context, GTK_JUNCTION_BOTTOM);
+    pgtk_style_context_set_junction_sides(context, GTK_JUNCTION_BOTTOM);
 
     /* Active tabs have their own parts */
     if (part_id > TABP_TABITEMBOTHEDGE && part_id < TABP_PANE) {
         new_height--; /* Fix the active tab height */
-        gtk_style_context_set_state(context, GTK_STATE_FLAG_ACTIVE);
+        pgtk_style_context_set_state(context, GTK_STATE_FLAG_ACTIVE);
     }
 
-    gtk_render_background(context, cr, x, 0, new_width, new_height);
-    gtk_render_frame(context, cr, x, 0, new_width, new_height);
+    pgtk_render_background(context, cr, x, 0, new_width, new_height);
+    pgtk_render_frame(context, cr, x, 0, new_width, new_height);
 }
 
 static void draw_tab_pane(cairo_t *cr, int width, int height)
 {
-    gtk_style_context_add_class(context, GTK_STYLE_CLASS_FRAME);
+    pgtk_style_context_add_class(context, GTK_STYLE_CLASS_FRAME);
 
     /* Make the top corners square */
-    gtk_style_context_set_junction_sides(context, GTK_JUNCTION_TOP);
+    pgtk_style_context_set_junction_sides(context, GTK_JUNCTION_TOP);
 
-    gtk_render_background(context, cr, 0, 0, width, height);
-    gtk_render_frame(context, cr, 0, 0, width, height);
+    pgtk_render_background(context, cr, 0, 0, width, height);
+    pgtk_render_frame(context, cr, 0, 0, width, height);
 }
 
 static void draw_tab_body(cairo_t *cr, int width, int height)
 {
     /* Some borders are already drawned by draw_tab_pane */
-    gtk_render_background(context, cr, -4, -4, width + 4, height + 4);
+    pgtk_render_background(context, cr, -4, -4, width + 4, height + 4);
 }
 
 void uxgtk_tab_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = gtk_widget_path_new();
-    int pos = gtk_widget_path_append_type(path, GTK_TYPE_NOTEBOOK);
+    GtkWidgetPath *path = pgtk_widget_path_new();
+    int pos = pgtk_widget_path_append_type(path, pgtk_notebook_get_type());
 
-    gtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_NOTEBOOK);
-    gtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_TOP);
+    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_NOTEBOOK);
+    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_TOP);
 
-    context = gtk_style_context_new();
-    gtk_style_context_set_path(context, path);
-    gtk_style_context_set_screen(context, screen);
+    context = pgtk_style_context_new();
+    pgtk_style_context_set_path(context, path);
+    pgtk_style_context_set_screen(context, screen);
 
-    gtk_style_context_get_style(context, "tab-overlap", &tab_overlap, NULL);
+    pgtk_style_context_get_style(context, "tab-overlap", &tab_overlap, NULL);
 
     WINE_TRACE("-GtkNotebook-tab-overlap: %d;\n", tab_overlap);
 }
 
 void uxgtk_tab_uninit(void)
 {
-    g_object_unref(context);
+    pg_object_unref(context);
 }
 
 void uxgtk_tab_draw_background(cairo_t *cr,
                                int part_id, int state_id,
                                int width, int height)
 {
-    gtk_style_context_save(context);
+    pgtk_style_context_save(context);
 
     /* Draw a dialog background to fix some themes like Ambiance */
     uxgtk_window_draw_background(cr, WP_DIALOG, 0, width, height - 1);
@@ -137,7 +135,7 @@ void uxgtk_tab_draw_background(cairo_t *cr,
         WINE_FIXME("Unsupported tab part %d.\n", part_id);
     }
 
-    gtk_style_context_restore(context);
+    pgtk_style_context_restore(context);
 }
 
 BOOL uxgtk_tab_is_part_defined(int part_id, int state_id)

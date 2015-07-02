@@ -23,8 +23,6 @@
 #include <vsstyle.h>
 #include <wine/debug.h>
 
-#include <gtk/gtk.h>
-
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
 GtkStyleContext *context = NULL;
@@ -51,23 +49,23 @@ static void draw_separator(cairo_t *cr, int part_id, int width, int height)
         y1 = y2 = height/2;
     }
 
-    gtk_render_line(context, cr, x1, y1, x2, y2);
+    pgtk_render_line(context, cr, x1, y1, x2, y2);
 }
 
 void uxgtk_toolbar_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = gtk_widget_path_new();
-    int pos = gtk_widget_path_append_type(path, GTK_TYPE_SEPARATOR);
-    gtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_SEPARATOR);
+    GtkWidgetPath *path = pgtk_widget_path_new();
+    int pos = pgtk_widget_path_append_type(path, pgtk_separator_get_type());
+    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_SEPARATOR);
 
-    context = gtk_style_context_new();
-    gtk_style_context_set_path(context, path);
-    gtk_style_context_set_screen(context, screen);
+    context = pgtk_style_context_new();
+    pgtk_style_context_set_path(context, path);
+    pgtk_style_context_set_screen(context, screen);
 }
 
 void uxgtk_toolbar_uninit(void)
 {
-    g_object_unref(context);
+    pg_object_unref(context);
 }
 
 void uxgtk_toolbar_draw_background(cairo_t *cr,

@@ -25,8 +25,6 @@
 #include <winerror.h>
 #include <wine/debug.h>
 
-#include <gtk/gtk.h>
-
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
 static GtkStyleContext *menu_context = NULL;
@@ -98,50 +96,50 @@ void uxgtk_menu_init(GdkScreen *screen)
     int pos = 0;
 
     /* GtkWindow.background */
-    path = gtk_widget_path_new();
-    pos = gtk_widget_path_append_type(path, GTK_TYPE_WINDOW);
-    gtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_BACKGROUND);
-    window_context = gtk_style_context_new();
-    gtk_style_context_set_path(window_context, path);
-    gtk_style_context_set_screen(window_context, screen);
+    path = pgtk_widget_path_new();
+    pos = pgtk_widget_path_append_type(path, pgtk_window_get_type());
+    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_BACKGROUND);
+    window_context = pgtk_style_context_new();
+    pgtk_style_context_set_path(window_context, path);
+    pgtk_style_context_set_screen(window_context, screen);
 
     /* GtkWindow.background GtkMenuBar.menubar */
-    path = gtk_widget_path_new();
-    pos = gtk_widget_path_append_type(path, GTK_TYPE_MENU_BAR);
-    gtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_MENUBAR);
-    menubar_context = gtk_style_context_new();
-    gtk_style_context_set_path(menubar_context, path);
-    gtk_style_context_set_screen(menubar_context, screen);
-    gtk_style_context_set_parent(menubar_context, window_context);
+    path = pgtk_widget_path_new();
+    pos = pgtk_widget_path_append_type(path, pgtk_menu_bar_get_type());
+    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_MENUBAR);
+    menubar_context = pgtk_style_context_new();
+    pgtk_style_context_set_path(menubar_context, path);
+    pgtk_style_context_set_screen(menubar_context, screen);
+    pgtk_style_context_set_parent(menubar_context, window_context);
 
     /* GtkWindow.background GtkMenuBar.menubar GtkMenu.menu */
-    path = gtk_widget_path_new();
-    pos = gtk_widget_path_append_type(path, GTK_TYPE_MENU);
-    gtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_MENU);
-    menu_context = gtk_style_context_new();
-    gtk_style_context_set_path(menu_context, path);
-    gtk_style_context_set_screen(menu_context, screen);
-    gtk_style_context_set_parent(menu_context, menubar_context);
+    path = pgtk_widget_path_new();
+    pos = pgtk_widget_path_append_type(path, pgtk_menu_get_type());
+    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_MENU);
+    menu_context = pgtk_style_context_new();
+    pgtk_style_context_set_path(menu_context, path);
+    pgtk_style_context_set_screen(menu_context, screen);
+    pgtk_style_context_set_parent(menu_context, menubar_context);
 
     /* GtkWindow.background GtkMenuBar.menubar GtkMenu.menu GtkMenuItem.menuitem */
-    path = gtk_widget_path_new();
-    pos = gtk_widget_path_append_type(path, GTK_TYPE_MENU_ITEM);
-    gtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_MENUITEM);
-    menuitem_context = gtk_style_context_new();
-    gtk_style_context_set_path(menuitem_context, path);
-    gtk_style_context_set_screen(menuitem_context, screen);
-    gtk_style_context_set_parent(menuitem_context, menu_context);
+    path = pgtk_widget_path_new();
+    pos = pgtk_widget_path_append_type(path, pgtk_menu_item_get_type());
+    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_MENUITEM);
+    menuitem_context = pgtk_style_context_new();
+    pgtk_style_context_set_path(menuitem_context, path);
+    pgtk_style_context_set_screen(menuitem_context, screen);
+    pgtk_style_context_set_parent(menuitem_context, menu_context);
 }
 
 void uxgtk_menu_uninit(void)
 {
-    gtk_style_context_set_parent(menuitem_context, NULL);
-    g_object_unref(menuitem_context);
-    gtk_style_context_set_parent(menu_context, NULL);
-    g_object_unref(menu_context);
-    gtk_style_context_set_parent(menubar_context, NULL);
-    g_object_unref(menubar_context);
-    g_object_unref(window_context);
+    pgtk_style_context_set_parent(menuitem_context, NULL);
+    pg_object_unref(menuitem_context);
+    pgtk_style_context_set_parent(menu_context, NULL);
+    pg_object_unref(menu_context);
+    pgtk_style_context_set_parent(menubar_context, NULL);
+    pg_object_unref(menubar_context);
+    pg_object_unref(window_context);
 }
 
 HRESULT uxgtk_menu_get_color(int part_id, int state_id,
@@ -152,11 +150,11 @@ HRESULT uxgtk_menu_get_color(int part_id, int state_id,
 
     switch (prop_id) {
     case TMT_FILLCOLOR:
-        gtk_style_context_get_background_color(context, state, rgba);
+        pgtk_style_context_get_background_color(context, state, rgba);
         break;
 
     case TMT_TEXTCOLOR:
-        gtk_style_context_get_color(context, state, rgba);
+        pgtk_style_context_get_color(context, state, rgba);
         break;
 
     default:

@@ -23,28 +23,26 @@
 #include <vsstyle.h>
 #include <wine/debug.h>
 
-#include <gtk/gtk.h>
-
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
 static GtkStyleContext *context = NULL;
 
 void uxgtk_listbox_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = gtk_widget_path_new();
-    int pos = gtk_widget_path_append_type(path, GTK_TYPE_SCROLLED_WINDOW);
+    GtkWidgetPath *path = pgtk_widget_path_new();
+    int pos = pgtk_widget_path_append_type(path, pgtk_scrolled_window_get_type());
 
-    gtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_VIEW);
-    gtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_FRAME);
+    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_VIEW);
+    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_FRAME);
 
-    context = gtk_style_context_new();
-    gtk_style_context_set_path(context, path);
-    gtk_style_context_set_screen(context, screen);
+    context = pgtk_style_context_new();
+    pgtk_style_context_set_path(context, path);
+    pgtk_style_context_set_screen(context, screen);
 }
 
 void uxgtk_listbox_uninit(void)
 {
-    g_object_unref(context);
+    pg_object_unref(context);
 }
 
 void uxgtk_listbox_draw_background(cairo_t *cr,
@@ -57,8 +55,8 @@ void uxgtk_listbox_draw_background(cairo_t *cr,
     case LBCP_BORDER_HVSCROLL:
     case LBCP_BORDER_NOSCROLL:
     case LBCP_BORDER_VSCROLL:
-        gtk_render_background(context, cr, 0, 0, width, height);
-        gtk_render_frame(context, cr, 0, 0, width, height);
+        pgtk_render_background(context, cr, 0, 0, width, height);
+        pgtk_render_frame(context, cr, 0, 0, width, height);
         break;
 
     default:

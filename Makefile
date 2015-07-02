@@ -20,7 +20,7 @@ CC = winegcc
 RM = rm -f
 
 CFLAGS  = -fPIC -Wall -O3 $(shell pkg-config --cflags gtk+-3.0)
-LDFLAGS = -shared -lgdi32 $(shell pkg-config --libs gtk+-3.0)
+LDFLAGS = -shared -lgdi32
 
 TARGET  = uxtheme.dll.so
 SOURCES = $(shell echo src/*.c)

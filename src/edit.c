@@ -25,8 +25,6 @@
 #include <winerror.h>
 #include <wine/debug.h>
 
-#include <gtk/gtk.h>
-
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
 static GtkStyleContext *context = NULL;
@@ -63,27 +61,27 @@ static void draw_edit_text(cairo_t *cr, int state_id, int width, int height)
 {
     GtkStateFlags state = get_text_state_flags(state_id);
 
-    gtk_style_context_set_state(context, state);
+    pgtk_style_context_set_state(context, state);
 
-    gtk_render_background(context, cr, 0, 0, width, height);
-    gtk_render_frame(context, cr, 0, 0, width, height);
+    pgtk_render_background(context, cr, 0, 0, width, height);
+    pgtk_render_frame(context, cr, 0, 0, width, height);
 }
 
 void uxgtk_edit_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = gtk_widget_path_new();
-    int pos = gtk_widget_path_append_type(path, GTK_TYPE_ENTRY);
+    GtkWidgetPath *path = pgtk_widget_path_new();
+    int pos = pgtk_widget_path_append_type(path, pgtk_entry_get_type());
 
-    gtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_ENTRY);
+    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_ENTRY);
 
-    context = gtk_style_context_new();
-    gtk_style_context_set_path(context, path);
-    gtk_style_context_set_screen(context, screen);
+    context = pgtk_style_context_new();
+    pgtk_style_context_set_path(context, path);
+    pgtk_style_context_set_screen(context, screen);
 }
 
 void uxgtk_edit_uninit(void)
 {
-    g_object_unref(context);
+    pg_object_unref(context);
 }
 
 HRESULT uxgtk_edit_get_color(int part_id, int state_id,
@@ -93,13 +91,13 @@ HRESULT uxgtk_edit_get_color(int part_id, int state_id,
 
     switch (prop_id) {
     case TMT_FILLCOLOR:
-        gtk_style_context_add_class(context, GTK_STYLE_CLASS_VIEW);
-        gtk_style_context_get_background_color(context, state, rgba);
-        gtk_style_context_remove_class(context, GTK_STYLE_CLASS_VIEW);
+        pgtk_style_context_add_class(context, GTK_STYLE_CLASS_VIEW);
+        pgtk_style_context_get_background_color(context, state, rgba);
+        pgtk_style_context_remove_class(context, GTK_STYLE_CLASS_VIEW);
         return S_OK;
 
     case TMT_TEXTCOLOR:
-        gtk_style_context_get_color(context, state, rgba);
+        pgtk_style_context_get_color(context, state, rgba);
         return S_OK;
 
     default:
@@ -113,14 +111,14 @@ void uxgtk_edit_draw_background(cairo_t *cr,
                                 int part_id, int state_id,
                                 int width, int height)
 {
-    gtk_style_context_save(context);
+    pgtk_style_context_save(context);
 
     if (part_id == EP_EDITTEXT)
         draw_edit_text(cr, state_id, width, height);
     else
         WINE_FIXME("Unsupported edit part %d.\n", part_id);
 
-    gtk_style_context_restore(context);
+    pgtk_style_context_restore(context);
 }
 
 BOOL uxgtk_edit_is_part_defined(int part_id, int state_id)

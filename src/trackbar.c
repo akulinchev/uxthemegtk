@@ -23,8 +23,6 @@
 #include <vsstyle.h>
 #include <wine/debug.h>
 
-#include <gtk/gtk.h>
-
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
 static int slider_width = 0, slider_height = 0;
@@ -44,9 +42,9 @@ static void draw_track(cairo_t *cr, int part_id, int width, int height)
         y1 = y2 = height/2;
     }
 
-    gtk_style_context_add_class(context, GTK_STYLE_CLASS_SEPARATOR);
+    pgtk_style_context_add_class(context, GTK_STYLE_CLASS_SEPARATOR);
 
-    gtk_render_line(context, cr, x1, y1, x2, y2);
+    pgtk_render_line(context, cr, x1, y1, x2, y2);
 }
 
 static void draw_thumb(cairo_t *cr, int state_id, int width, int height)
@@ -58,39 +56,39 @@ static void draw_thumb(cairo_t *cr, int state_id, int width, int height)
     else if (state_id == TUBS_PRESSED)
         state = GTK_STATE_FLAG_ACTIVE;
 
-    gtk_style_context_set_state(context, state);
+    pgtk_style_context_set_state(context, state);
 
     if (width > height)
         if (slider_width > slider_height)
-            gtk_style_context_add_class(context, GTK_STYLE_CLASS_HORIZONTAL);
+            pgtk_style_context_add_class(context, GTK_STYLE_CLASS_HORIZONTAL);
         else
-            gtk_style_context_add_class(context, GTK_STYLE_CLASS_VERTICAL);
+            pgtk_style_context_add_class(context, GTK_STYLE_CLASS_VERTICAL);
     else
         if (slider_width > slider_height)
-            gtk_style_context_add_class(context, GTK_STYLE_CLASS_VERTICAL);
+            pgtk_style_context_add_class(context, GTK_STYLE_CLASS_VERTICAL);
         else
-            gtk_style_context_add_class(context, GTK_STYLE_CLASS_HORIZONTAL);
+            pgtk_style_context_add_class(context, GTK_STYLE_CLASS_HORIZONTAL);
 
-    gtk_style_context_add_class(context, GTK_STYLE_CLASS_SCALE);
-    gtk_style_context_add_class(context, GTK_STYLE_CLASS_SLIDER);
+    pgtk_style_context_add_class(context, GTK_STYLE_CLASS_SCALE);
+    pgtk_style_context_add_class(context, GTK_STYLE_CLASS_SLIDER);
 
-    gtk_render_slider(context, cr, 0, 0, slider_width, slider_height,
-                      GTK_ORIENTATION_HORIZONTAL);
+    pgtk_render_slider(context, cr, 0, 0, slider_width, slider_height,
+                       GTK_ORIENTATION_HORIZONTAL);
 }
 
 void uxgtk_trackbar_init(GdkScreen *screen)
 {
-    GtkWidgetPath *path = gtk_widget_path_new();
-    gtk_widget_path_append_type(path, GTK_TYPE_SCALE);
+    GtkWidgetPath *path = pgtk_widget_path_new();
+    pgtk_widget_path_append_type(path, pgtk_scale_get_type());
 
-    context = gtk_style_context_new();
-    gtk_style_context_set_path(context, path);
-    gtk_style_context_set_screen(context, screen);
+    context = pgtk_style_context_new();
+    pgtk_style_context_set_path(context, path);
+    pgtk_style_context_set_screen(context, screen);
 
-    gtk_style_context_get_style(context,
-                                "slider-length", &slider_width,
-                                "slider-width", &slider_height, /* Yes, it is */
-                                NULL);
+    pgtk_style_context_get_style(context,
+                                 "slider-length", &slider_width,
+                                 "slider-width", &slider_height, /* Yes, it is */
+                                 NULL);
 
     WINE_TRACE("-GtkScale-slider-length: %d;\n"
                "-GtkScale-slider-width: %d;\n",
@@ -99,14 +97,14 @@ void uxgtk_trackbar_init(GdkScreen *screen)
 
 void uxgtk_trackbar_uninit(void)
 {
-    g_object_unref(context);
+    pg_object_unref(context);
 }
 
 void uxgtk_trackbar_draw_background(cairo_t *cr,
                                     int part_id, int state_id,
                                     int width, int height)
 {
-    gtk_style_context_save(context);
+    pgtk_style_context_save(context);
 
     switch (part_id) {
     case TKP_THUMB:
@@ -127,7 +125,7 @@ void uxgtk_trackbar_draw_background(cairo_t *cr,
         WINE_FIXME("Unsupported trackbar part %d.\n", part_id);
     }
 
-    gtk_style_context_restore(context);
+    pgtk_style_context_restore(context);
 }
 
 BOOL uxgtk_trackbar_is_part_defined(int part_id, int state_id)
