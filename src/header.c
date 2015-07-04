@@ -25,62 +25,55 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-static GtkStyleContext *context = NULL;
+static GtkWidget *treeview = NULL;
 
 static void draw_header_item(cairo_t *cr, int state_id, int width, int height)
 {
+    GtkWidget *widget = pgtk_tree_view_column_get_button(
+        pgtk_tree_view_get_column((GtkTreeView*)treeview, 1));
     GtkStateFlags state = GTK_STATE_FLAG_NORMAL;
+    GtkStyleContext *context = pgtk_widget_get_style_context(widget);
 
     if (state_id == HIS_HOT)
         state = GTK_STATE_FLAG_PRELIGHT;
     else if (state_id == HIS_PRESSED)
         state = GTK_STATE_FLAG_ACTIVE;
 
+    pgtk_style_context_save(context);
+
     pgtk_style_context_set_state(context, state);
 
     pgtk_render_background(context, cr, 0, 0, width, height);
     pgtk_render_frame(context, cr, 0, 0, width, height);
+
+    pgtk_style_context_restore(context);
 }
 
-void uxgtk_header_init(GdkScreen *screen)
+void uxgtk_header_init(void)
 {
-    GtkWidgetPath *path;
-    int pos;
+    TRACE("()\n");
 
-    TRACE("(%p)\n", screen);
+    treeview = pgtk_tree_view_new();
 
-    path = pgtk_widget_path_new();
-    pos = pgtk_widget_path_append_type(path, pgtk_tree_view_get_type());
-
-    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_VIEW);
-    pgtk_widget_path_iter_add_region(path, pos, GTK_STYLE_REGION_COLUMN_HEADER, 0);
-
-    pos = pgtk_widget_path_append_type(path, pgtk_button_get_type());
-    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_BUTTON);
-
-    context = pgtk_style_context_new();
-    pgtk_style_context_set_path(context, path);
-    pgtk_style_context_set_screen(context, screen);
+    pgtk_tree_view_append_column((GtkTreeView*)treeview, pgtk_tree_view_column_new());
+    pgtk_tree_view_append_column((GtkTreeView*)treeview, pgtk_tree_view_column_new());
+    pgtk_tree_view_append_column((GtkTreeView*)treeview, pgtk_tree_view_column_new());
 }
 
 void uxgtk_header_uninit(void)
 {
     TRACE("()\n");
-    pg_object_unref(context);
+    pgtk_widget_destroy(treeview);
 }
 
 void uxgtk_header_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
 {
     TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
 
-    pgtk_style_context_save(context);
-
     if (part_id == HP_HEADERITEM)
         draw_header_item(cr, state_id, width, height);
     else
         FIXME("Unsupported header part %d.\n", part_id);
-
-    pgtk_style_context_restore(context);
 }
 
 BOOL uxgtk_header_is_part_defined(int part_id, int state_id)

@@ -27,34 +27,34 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-static GtkStyleContext *context = NULL;
+static GtkWidget *window = NULL;
 
-void uxgtk_window_init(GdkScreen *screen)
+void uxgtk_window_init(void)
 {
-    GtkWidgetPath *path;
-    int pos;
+    GtkStyleContext *context;
 
-    TRACE("(%p)\n", screen);
+    TRACE("()\n");
 
-    path = pgtk_widget_path_new();
-    pos = pgtk_widget_path_append_type(path, pgtk_window_get_type());
+    window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
 
-    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_BACKGROUND);
+    context = pgtk_widget_get_style_context(window);
 
-    context = pgtk_style_context_new();
-    pgtk_style_context_set_path(context, path);
-    pgtk_style_context_set_screen(context, screen);
+    pgtk_style_context_add_class(context, GTK_STYLE_CLASS_BACKGROUND);
 }
 
 void uxgtk_window_uninit(void)
 {
     TRACE("()\n");
-    pg_object_unref(context);
+    pgtk_widget_destroy(window);
 }
 
 HRESULT uxgtk_window_get_color(int part_id, int state_id, int prop_id, GdkRGBA *rgba)
 {
-    TRACE("(%d, %d, %d, %p)\n", part_id, state_id, prop_id, rgba);
+    GtkStyleContext *context;
+
+    TRACE("()\n");
+
+    context = pgtk_widget_get_style_context(window);
 
     switch (prop_id)
     {
@@ -67,7 +67,7 @@ HRESULT uxgtk_window_get_color(int part_id, int state_id, int prop_id, GdkRGBA *
             break;
 
         default:
-            FIXME("Unknown property %d.\n", prop_id);
+            FIXME("Unsupported property %d.\n", prop_id);
             return E_FAIL;
     }
 
@@ -76,7 +76,11 @@ HRESULT uxgtk_window_get_color(int part_id, int state_id, int prop_id, GdkRGBA *
 
 void uxgtk_window_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
 {
+    GtkStyleContext *context;
+
     TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+
+    context = pgtk_widget_get_style_context(window);
 
     if (part_id == WP_DIALOG)
         pgtk_render_background(context, cr, 0, 0, width, height);

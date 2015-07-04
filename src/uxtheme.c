@@ -38,12 +38,10 @@
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
 #define SONAME_LIBGTK_3 "libgtk-3.so"
-#define SONAME_LIBGDK_3 "libgdk-3.so"
 #define SONAME_LIBCAIRO "libcairo.so"
 #define SONAME_LIBGOBJECT_2_0 "libgobject-2.0.so"
 
 static void* libgtk3 = NULL;
-static void* libgdk3 = NULL;
 static void* libcairo = NULL;
 static void* libgobject2 = NULL;
 
@@ -55,19 +53,26 @@ MAKE_FUNCPTR(cairo_image_surface_get_data);
 MAKE_FUNCPTR(cairo_image_surface_get_stride);
 MAKE_FUNCPTR(cairo_surface_destroy);
 MAKE_FUNCPTR(cairo_surface_flush);
-MAKE_FUNCPTR(g_object_unref);
-MAKE_FUNCPTR(gdk_screen_get_default);
-MAKE_FUNCPTR(gtk_button_get_type);
-MAKE_FUNCPTR(gtk_check_button_get_type);
-MAKE_FUNCPTR(gtk_combo_box_get_type);
+MAKE_FUNCPTR(g_type_check_instance_is_a);
+MAKE_FUNCPTR(gtk_bin_get_child);
+MAKE_FUNCPTR(gtk_button_new);
+MAKE_FUNCPTR(gtk_check_button_new);
+MAKE_FUNCPTR(gtk_combo_box_new_with_entry);
+MAKE_FUNCPTR(gtk_container_add);
+MAKE_FUNCPTR(gtk_container_forall);
 MAKE_FUNCPTR(gtk_entry_get_type);
+MAKE_FUNCPTR(gtk_entry_new);
+MAKE_FUNCPTR(gtk_fixed_new);
+MAKE_FUNCPTR(gtk_frame_new);
 MAKE_FUNCPTR(gtk_init);
-MAKE_FUNCPTR(gtk_label_get_type);
-MAKE_FUNCPTR(gtk_menu_bar_get_type);
-MAKE_FUNCPTR(gtk_menu_get_type);
-MAKE_FUNCPTR(gtk_menu_item_get_type);
-MAKE_FUNCPTR(gtk_notebook_get_type);
-MAKE_FUNCPTR(gtk_radio_button_get_type);
+MAKE_FUNCPTR(gtk_label_new);
+MAKE_FUNCPTR(gtk_menu_bar_new);
+MAKE_FUNCPTR(gtk_menu_item_new);
+MAKE_FUNCPTR(gtk_menu_item_set_submenu);
+MAKE_FUNCPTR(gtk_menu_new);
+MAKE_FUNCPTR(gtk_menu_shell_append);
+MAKE_FUNCPTR(gtk_notebook_new);
+MAKE_FUNCPTR(gtk_radio_button_new);
 MAKE_FUNCPTR(gtk_render_arrow);
 MAKE_FUNCPTR(gtk_render_background);
 MAKE_FUNCPTR(gtk_render_check);
@@ -76,33 +81,33 @@ MAKE_FUNCPTR(gtk_render_handle);
 MAKE_FUNCPTR(gtk_render_line);
 MAKE_FUNCPTR(gtk_render_option);
 MAKE_FUNCPTR(gtk_render_slider);
-MAKE_FUNCPTR(gtk_scale_get_type);
-MAKE_FUNCPTR(gtk_scrolled_window_get_type);
-MAKE_FUNCPTR(gtk_separator_get_type);
+MAKE_FUNCPTR(gtk_scale_new);
+MAKE_FUNCPTR(gtk_scrolled_window_new);
+MAKE_FUNCPTR(gtk_separator_tool_item_new);
 MAKE_FUNCPTR(gtk_style_context_add_class);
 MAKE_FUNCPTR(gtk_style_context_add_region);
 MAKE_FUNCPTR(gtk_style_context_get_background_color);
 MAKE_FUNCPTR(gtk_style_context_get_border_color);
 MAKE_FUNCPTR(gtk_style_context_get_color);
 MAKE_FUNCPTR(gtk_style_context_get_style);
-MAKE_FUNCPTR(gtk_style_context_new);
 MAKE_FUNCPTR(gtk_style_context_remove_class);
 MAKE_FUNCPTR(gtk_style_context_restore);
 MAKE_FUNCPTR(gtk_style_context_save);
 MAKE_FUNCPTR(gtk_style_context_set_junction_sides);
-MAKE_FUNCPTR(gtk_style_context_set_parent);
-MAKE_FUNCPTR(gtk_style_context_set_path);
-MAKE_FUNCPTR(gtk_style_context_set_screen);
 MAKE_FUNCPTR(gtk_style_context_set_state);
-MAKE_FUNCPTR(gtk_tree_view_get_type);
-MAKE_FUNCPTR(gtk_widget_path_append_type);
-MAKE_FUNCPTR(gtk_widget_path_iter_add_class);
-MAKE_FUNCPTR(gtk_widget_path_iter_add_region);
-MAKE_FUNCPTR(gtk_widget_path_new);
-MAKE_FUNCPTR(gtk_window_get_type);
+MAKE_FUNCPTR(gtk_toggle_button_get_type);
+MAKE_FUNCPTR(gtk_tree_view_append_column);
+MAKE_FUNCPTR(gtk_tree_view_column_get_button);
+MAKE_FUNCPTR(gtk_tree_view_column_new);
+MAKE_FUNCPTR(gtk_tree_view_get_column);
+MAKE_FUNCPTR(gtk_tree_view_new);
+MAKE_FUNCPTR(gtk_widget_destroy);
+MAKE_FUNCPTR(gtk_widget_get_style_context);
+MAKE_FUNCPTR(gtk_widget_style_get);
+MAKE_FUNCPTR(gtk_window_new);
 #undef MAKE_FUNCPTR
 
-typedef void (*init_func_t)(GdkScreen *screen);
+typedef void (*init_func_t)(void);
 typedef void (*uninit_func_t)(void);
 typedef HRESULT (*get_color_func_t)(int part_id, int state_id,
                                     int prop_id, GdkRGBA *rgba);
@@ -268,10 +273,9 @@ static void fix_sys_params(void)
 static void free_gtk3_libs(void)
 {
     if (libgtk3) wine_dlclose(libgtk3, NULL, 0);
-    if (libgdk3) wine_dlclose(libgdk3, NULL, 0);
     if (libcairo) wine_dlclose(libcairo, NULL, 0);
     if (libgobject2) wine_dlclose(libgobject2, NULL, 0);
-    libgtk3 = libgdk3 = libcairo = libgobject2 = NULL;
+    libgtk3 = libcairo = libgobject2 = NULL;
 }
 
 #define LOAD_FUNCPTR(lib, f) \
@@ -290,17 +294,25 @@ static BOOL load_gtk3_libs(void)
         goto error;
     }
 
-    LOAD_FUNCPTR(libgtk3, gtk_button_get_type)
-    LOAD_FUNCPTR(libgtk3, gtk_check_button_get_type)
-    LOAD_FUNCPTR(libgtk3, gtk_combo_box_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_bin_get_child);
+    LOAD_FUNCPTR(libgtk3, gtk_button_new);
+    LOAD_FUNCPTR(libgtk3, gtk_check_button_new);
+    LOAD_FUNCPTR(libgtk3, gtk_combo_box_new_with_entry);
+    LOAD_FUNCPTR(libgtk3, gtk_container_add);
+    LOAD_FUNCPTR(libgtk3, gtk_container_forall);
     LOAD_FUNCPTR(libgtk3, gtk_entry_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_entry_new);
+    LOAD_FUNCPTR(libgtk3, gtk_fixed_new);
+    LOAD_FUNCPTR(libgtk3, gtk_frame_new);
     LOAD_FUNCPTR(libgtk3, gtk_init)
-    LOAD_FUNCPTR(libgtk3, gtk_label_get_type)
-    LOAD_FUNCPTR(libgtk3, gtk_menu_bar_get_type)
-    LOAD_FUNCPTR(libgtk3, gtk_menu_get_type)
-    LOAD_FUNCPTR(libgtk3, gtk_menu_item_get_type)
-    LOAD_FUNCPTR(libgtk3, gtk_notebook_get_type)
-    LOAD_FUNCPTR(libgtk3, gtk_radio_button_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_label_new);
+    LOAD_FUNCPTR(libgtk3, gtk_menu_bar_new);
+    LOAD_FUNCPTR(libgtk3, gtk_menu_item_new);
+    LOAD_FUNCPTR(libgtk3, gtk_menu_item_set_submenu);
+    LOAD_FUNCPTR(libgtk3, gtk_menu_new);
+    LOAD_FUNCPTR(libgtk3, gtk_menu_shell_append);
+    LOAD_FUNCPTR(libgtk3, gtk_notebook_new);
+    LOAD_FUNCPTR(libgtk3, gtk_radio_button_new);
     LOAD_FUNCPTR(libgtk3, gtk_render_arrow)
     LOAD_FUNCPTR(libgtk3, gtk_render_background)
     LOAD_FUNCPTR(libgtk3, gtk_render_check)
@@ -309,39 +321,29 @@ static BOOL load_gtk3_libs(void)
     LOAD_FUNCPTR(libgtk3, gtk_render_line)
     LOAD_FUNCPTR(libgtk3, gtk_render_option)
     LOAD_FUNCPTR(libgtk3, gtk_render_slider)
-    LOAD_FUNCPTR(libgtk3, gtk_scale_get_type)
-    LOAD_FUNCPTR(libgtk3, gtk_scrolled_window_get_type)
-    LOAD_FUNCPTR(libgtk3, gtk_separator_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_scale_new);
+    LOAD_FUNCPTR(libgtk3, gtk_scrolled_window_new);
+    LOAD_FUNCPTR(libgtk3, gtk_separator_tool_item_new);
     LOAD_FUNCPTR(libgtk3, gtk_style_context_add_class)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_add_region)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_get_background_color)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_get_border_color)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_get_color)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_get_style)
-    LOAD_FUNCPTR(libgtk3, gtk_style_context_new)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_remove_class)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_restore)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_save)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_set_junction_sides)
-    LOAD_FUNCPTR(libgtk3, gtk_style_context_set_parent)
-    LOAD_FUNCPTR(libgtk3, gtk_style_context_set_path)
-    LOAD_FUNCPTR(libgtk3, gtk_style_context_set_screen)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_set_state)
-    LOAD_FUNCPTR(libgtk3, gtk_tree_view_get_type)
-    LOAD_FUNCPTR(libgtk3, gtk_widget_path_append_type)
-    LOAD_FUNCPTR(libgtk3, gtk_widget_path_iter_add_class)
-    LOAD_FUNCPTR(libgtk3, gtk_widget_path_iter_add_region)
-    LOAD_FUNCPTR(libgtk3, gtk_widget_path_new)
-    LOAD_FUNCPTR(libgtk3, gtk_window_get_type)
-
-    libgdk3 = wine_dlopen(SONAME_LIBGDK_3, RTLD_NOW, NULL, 0);
-    if (!libgdk3)
-    {
-        FIXME("Wine cannot find the %s library.\n", SONAME_LIBGDK_3);
-        goto error;
-    }
-
-    LOAD_FUNCPTR(libgdk3, gdk_screen_get_default)
+    LOAD_FUNCPTR(libgtk3, gtk_toggle_button_get_type);
+    LOAD_FUNCPTR(libgtk3, gtk_tree_view_append_column);
+    LOAD_FUNCPTR(libgtk3, gtk_tree_view_column_get_button);
+    LOAD_FUNCPTR(libgtk3, gtk_tree_view_column_new);
+    LOAD_FUNCPTR(libgtk3, gtk_tree_view_get_column);
+    LOAD_FUNCPTR(libgtk3, gtk_tree_view_new);
+    LOAD_FUNCPTR(libgtk3, gtk_widget_get_style_context);
+    LOAD_FUNCPTR(libgtk3, gtk_widget_style_get);
+    LOAD_FUNCPTR(libgtk3, gtk_window_new);
 
     libcairo = wine_dlopen(SONAME_LIBCAIRO, RTLD_NOW, NULL, 0);
     if (!libcairo)
@@ -365,7 +367,7 @@ static BOOL load_gtk3_libs(void)
         goto error;
     }
 
-    LOAD_FUNCPTR(libgobject2, g_object_unref)
+    LOAD_FUNCPTR(libgobject2, g_type_check_instance_is_a)
 
     return TRUE;
 
@@ -379,17 +381,14 @@ error:
 static BOOL init(void)
 {
     int i;
-    GdkScreen *screen;
 
     if (!load_gtk3_libs())
         return FALSE;
 
     pgtk_init(0, NULL); /* Otherwise every call to GTK will fail */
 
-    screen = pgdk_screen_get_default();
-
     for (i = 0; i < THEMES_SIZE; i++)
-        themes[i].init(screen);
+        themes[i].init();
 
     apply_colors();
     fix_sys_params();

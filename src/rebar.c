@@ -25,9 +25,9 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-void uxgtk_rebar_init(GdkScreen *screen)
+void uxgtk_rebar_init(void)
 {
-    TRACE("(%p)\n", screen);
+    TRACE("()\n");
     /* Do nothing */
 }
 

@@ -27,10 +27,10 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-static GtkStyleContext *menu_context = NULL;
-static GtkStyleContext *menubar_context = NULL;
-static GtkStyleContext *menuitem_context = NULL;
-static GtkStyleContext *window_context = NULL;
+static GtkWidget *window = NULL;
+static GtkWidget *menubar = NULL;
+static GtkWidget *menuitem = NULL;
+static GtkWidget *menu = NULL;
 
 static inline GtkStateFlags get_popup_item_state_flags(int state_id)
 {
@@ -80,76 +80,40 @@ static inline GtkStyleContext *get_style_context(int part_id)
     switch (part_id)
     {
         case MENU_BARBACKGROUND:
-            return menubar_context;
+            return pgtk_widget_get_style_context(menubar);
 
         case MENU_POPUPBACKGROUND:
-            return menu_context;
+            return pgtk_widget_get_style_context(menu);
 
         case MENU_POPUPITEM:
-            return menuitem_context;
+            return pgtk_widget_get_style_context(menuitem);
 
         default:
-            FIXME("Unknown menu part %d.\n", part_id);
+            FIXME("Unsupported menu part %d.\n", part_id);
             break;
     }
 
-    return menubar_context;
+    return pgtk_widget_get_style_context(menubar);
 }
 
-void uxgtk_menu_init(GdkScreen *screen)
+void uxgtk_menu_init(void)
 {
-    GtkWidgetPath *path = NULL;
-    int pos = 0;
+    TRACE("()\n");
 
-    TRACE("(%p)\n", screen);
+    window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
+    menubar = pgtk_menu_bar_new();
+    menuitem = pgtk_menu_item_new();
+    menu = pgtk_menu_new();
 
-    /* GtkWindow.background */
-    path = pgtk_widget_path_new();
-    pos = pgtk_widget_path_append_type(path, pgtk_window_get_type());
-    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_BACKGROUND);
-    window_context = pgtk_style_context_new();
-    pgtk_style_context_set_path(window_context, path);
-    pgtk_style_context_set_screen(window_context, screen);
-
-    /* GtkWindow.background GtkMenuBar.menubar */
-    path = pgtk_widget_path_new();
-    pos = pgtk_widget_path_append_type(path, pgtk_menu_bar_get_type());
-    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_MENUBAR);
-    menubar_context = pgtk_style_context_new();
-    pgtk_style_context_set_path(menubar_context, path);
-    pgtk_style_context_set_screen(menubar_context, screen);
-    pgtk_style_context_set_parent(menubar_context, window_context);
-
-    /* GtkWindow.background GtkMenuBar.menubar GtkMenu.menu */
-    path = pgtk_widget_path_new();
-    pos = pgtk_widget_path_append_type(path, pgtk_menu_get_type());
-    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_MENU);
-    menu_context = pgtk_style_context_new();
-    pgtk_style_context_set_path(menu_context, path);
-    pgtk_style_context_set_screen(menu_context, screen);
-    pgtk_style_context_set_parent(menu_context, menubar_context);
-
-    /* GtkWindow.background GtkMenuBar.menubar GtkMenu.menu GtkMenuItem.menuitem */
-    path = pgtk_widget_path_new();
-    pos = pgtk_widget_path_append_type(path, pgtk_menu_item_get_type());
-    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_MENUITEM);
-    menuitem_context = pgtk_style_context_new();
-    pgtk_style_context_set_path(menuitem_context, path);
-    pgtk_style_context_set_screen(menuitem_context, screen);
-    pgtk_style_context_set_parent(menuitem_context, menu_context);
+    pgtk_container_add((GtkContainer*)window, menubar);
+    pgtk_menu_shell_append((GtkMenuShell*)menubar, menuitem);
+    pgtk_menu_item_set_submenu((GtkMenuItem*)menuitem, menu);
 }
 
 void uxgtk_menu_uninit(void)
 {
     TRACE("()\n");
-
-    pgtk_style_context_set_parent(menuitem_context, NULL);
-    pg_object_unref(menuitem_context);
-    pgtk_style_context_set_parent(menu_context, NULL);
-    pg_object_unref(menu_context);
-    pgtk_style_context_set_parent(menubar_context, NULL);
-    pg_object_unref(menubar_context);
-    pg_object_unref(window_context);
+    pgtk_widget_destroy(window);
 }
 
 HRESULT uxgtk_menu_get_color(int part_id, int state_id, int prop_id, GdkRGBA *rgba)
@@ -157,7 +121,7 @@ HRESULT uxgtk_menu_get_color(int part_id, int state_id, int prop_id, GdkRGBA *rg
     GtkStyleContext *context = get_style_context(part_id);
     GtkStateFlags state = get_state_flags(part_id, state_id);
 
-    TRACE("(%d, %d, %d, %p)\n", part_id, state_id, prop_id, rgba);
+    TRACE("(%d, %d)\n",  part_id, state_id);
 
     switch (prop_id)
     {

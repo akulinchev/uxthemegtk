@@ -27,7 +27,8 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-static GtkStyleContext *context = NULL;
+static GtkWidget *window = NULL;
+static GtkWidget *entry = NULL;
 
 static inline GtkStateFlags get_text_state_flags(int state_id)
 {
@@ -62,39 +63,38 @@ static inline GtkStateFlags get_text_state_flags(int state_id)
 static void draw_edit_text(cairo_t *cr, int state_id, int width, int height)
 {
     GtkStateFlags state = get_text_state_flags(state_id);
+    GtkStyleContext *context = pgtk_widget_get_style_context(entry);
+
+    pgtk_style_context_save(context);
 
     pgtk_style_context_set_state(context, state);
 
     pgtk_render_background(context, cr, 0, 0, width, height);
     pgtk_render_frame(context, cr, 0, 0, width, height);
+
+    pgtk_style_context_restore(context);
 }
 
-void uxgtk_edit_init(GdkScreen *screen)
+void uxgtk_edit_init(void)
 {
-    GtkWidgetPath *path;
-    int pos;
+    TRACE("()\n");
 
-    TRACE("(%p)\n", screen);
+    window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
+    entry = pgtk_entry_new();
 
-    path = pgtk_widget_path_new();
-    pos = pgtk_widget_path_append_type(path, pgtk_entry_get_type());
-
-    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_ENTRY);
-
-    context = pgtk_style_context_new();
-    pgtk_style_context_set_path(context, path);
-    pgtk_style_context_set_screen(context, screen);
+    pgtk_container_add((GtkContainer*)window, entry);
 }
 
 void uxgtk_edit_uninit(void)
 {
     TRACE("()\n");
-    pg_object_unref(context);
+    pgtk_widget_destroy(window);
 }
 
 HRESULT uxgtk_edit_get_color(int part_id, int state_id, int prop_id, GdkRGBA *rgba)
 {
     GtkStateFlags state = get_text_state_flags(state_id);
+    GtkStyleContext *context = pgtk_widget_get_style_context(entry);
 
     TRACE("(%d, %d, %d, %p)\n", part_id, state_id, prop_id, rgba);
 
@@ -122,14 +122,10 @@ void uxgtk_edit_draw_background(cairo_t *cr, int part_id, int state_id, int widt
 {
     TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
 
-    pgtk_style_context_save(context);
-
     if (part_id == EP_EDITTEXT)
         draw_edit_text(cr, state_id, width, height);
     else
         FIXME("Unsupported edit part %d.\n", part_id);
-
-    pgtk_style_context_restore(context);
 }
 
 BOOL uxgtk_edit_is_part_defined(int part_id, int state_id)

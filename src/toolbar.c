@@ -25,7 +25,7 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-GtkStyleContext *context = NULL;
+static GtkWidget *separator = NULL;
 
 static void draw_button(cairo_t *cr, int state_id, int width, int height)
 {
@@ -38,6 +38,7 @@ static void draw_button(cairo_t *cr, int state_id, int width, int height)
 static void draw_separator(cairo_t *cr, int part_id, int width, int height)
 {
     int x1, x2, y1, y2;
+    GtkStyleContext *context = pgtk_widget_get_style_context(separator);
 
     if (part_id == TP_SEPARATOR) /* TP_SEPARATORVERT ? */
     {
@@ -55,26 +56,16 @@ static void draw_separator(cairo_t *cr, int part_id, int width, int height)
     pgtk_render_line(context, cr, x1, y1, x2, y2);
 }
 
-void uxgtk_toolbar_init(GdkScreen *screen)
+void uxgtk_toolbar_init(void)
 {
-    GtkWidgetPath *path;
-    int pos;
-
-    TRACE("(%p)\n", screen);
-
-    path = pgtk_widget_path_new();
-    pos = pgtk_widget_path_append_type(path, pgtk_separator_get_type());
-    pgtk_widget_path_iter_add_class(path, pos, GTK_STYLE_CLASS_SEPARATOR);
-
-    context = pgtk_style_context_new();
-    pgtk_style_context_set_path(context, path);
-    pgtk_style_context_set_screen(context, screen);
+    TRACE("()\n");
+    separator = (GtkWidget*)pgtk_separator_tool_item_new();
 }
 
 void uxgtk_toolbar_uninit(void)
 {
     TRACE("()\n");
-    pg_object_unref(context);
+    pgtk_widget_destroy(separator);
 }
 
 void uxgtk_toolbar_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
