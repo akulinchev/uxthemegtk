@@ -24,6 +24,22 @@
 #include <windef.h>
 #include <gtk/gtk.h>
 
+typedef HANDLE HTHEMEFILE;
+
+typedef struct tagTHEMENAMES
+{
+    WCHAR szName[MAX_PATH+1];
+    WCHAR szDisplayName[MAX_PATH+1];
+    WCHAR szTooltip[MAX_PATH+1];
+} THEMENAMES, *PTHEMENAMES;
+
+typedef BOOL (CALLBACK *EnumThemeProc)(LPVOID lpReserved, LPCWSTR pszThemeFileName,
+                                       LPCWSTR pszThemeName, LPCWSTR pszToolTip, LPVOID lpReserved2,
+                                       LPVOID lpData);
+typedef BOOL (CALLBACK*ParseThemeIniFileProc)(DWORD dwType, LPWSTR pszParam1,
+                                              LPWSTR pszParam2, LPWSTR pszParam3,
+                                              DWORD dwParam, LPVOID lpData);
+
 #define MAKE_FUNCPTR(f) extern typeof(f) * p##f DECLSPEC_HIDDEN
 MAKE_FUNCPTR(cairo_create);
 MAKE_FUNCPTR(cairo_destroy);

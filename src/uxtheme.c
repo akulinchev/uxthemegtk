@@ -30,6 +30,8 @@
 #include <uxtheme.h>
 #include <vsstyle.h>
 #include <vssym32.h>
+#include "vfwmsgs.h"
+#include "shlobj.h"
 
 #include <wine/debug.h>
 
@@ -231,7 +233,12 @@ static /* const */ theme_t themes[] = {
 #define CLASSLIST_MAXLEN 128
 #define PIXEL_SIZE 4 /* red + green + blue + alpha = 4 bytes */
 
-const WCHAR THEME_PROPERTY[] = {'u','x','g','t','k','_','t','h','e','m','e',0};
+static WCHAR fake_msstyles_file[MAX_PATH];
+
+static const WCHAR THEME_PROPERTY[] = {'u','x','g','t','k','_','t','h','e','m','e',0};
+static const WCHAR FAKE_NAME[] = {'G','T','K',0};
+static const WCHAR FAKE_COLOR[] = {'N','o','r','m','a','l','C','o','l','o','r',0};
+static const WCHAR FAKE_SIZE[] = {'N','o','r','m','a','l','S','i','z','e',0};
 
 #define GDKRGBA_TO_COLORREF(rgba) RGB( \
     (int)(0.5 + CLAMP(rgba.red, 0.0, 1.0) * 255.0), \
@@ -380,7 +387,11 @@ error:
 
 static BOOL init(void)
 {
+    static const WCHAR themesSubdir[] = { '\\','T','h','e','m','e','s',0 };
+    static WCHAR style_folder[] = {'\\', 'g','t','k', 0};
+    static WCHAR style_file[] = {'\\','g','t','k','.','m','s','s','t','y','l','e','s', 0};
     int i;
+    HANDLE file;
 
     if (!load_gtk3_libs())
         return FALSE;
@@ -392,6 +403,23 @@ static BOOL init(void)
 
     apply_colors();
     fix_sys_params();
+
+    if (FAILED (SHGetFolderPathW (NULL, CSIDL_RESOURCES|CSIDL_FLAG_CREATE, NULL,
+        SHGFP_TYPE_CURRENT, fake_msstyles_file)))
+    {
+        fake_msstyles_file[0] = 0;
+        return TRUE;
+    }
+
+    lstrcatW (fake_msstyles_file, themesSubdir);
+    lstrcatW (fake_msstyles_file, style_folder);
+
+    SHCreateDirectoryExW (NULL, fake_msstyles_file, NULL);
+
+    lstrcatW (fake_msstyles_file, style_file);
+
+    file = CreateFileW(fake_msstyles_file, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
 
     return TRUE;
 }
@@ -516,7 +544,11 @@ HRESULT WINAPI GetCurrentThemeName(LPWSTR filename, int filename_maxlen,
     TRACE("(%p, %d, %p, %d, %p, %d)\n", filename, filename_maxlen,
           color, color_maxlen, size, size_maxlen);
 
-    return E_FAIL; /* To prevent calling EnumThemeColors and so on */
+    lstrcpynW(filename, fake_msstyles_file, filename_maxlen);
+    lstrcpynW(color, FAKE_COLOR, color_maxlen);
+    lstrcpynW(size, FAKE_SIZE, size_maxlen);
+
+    return S_OK;
 }
 
 DWORD WINAPI GetThemeAppProperties(void)
@@ -1109,6 +1141,174 @@ BOOL WINAPI IsThemePartDefined(HTHEME htheme, int part_id, int state_id)
     }
 
     return theme->is_part_defined(part_id, state_id);
+}
+
+static BOOL is_fake_theme(const WCHAR *path)
+{
+    BY_HANDLE_FILE_INFORMATION fakeInfo, fileInfo;
+    HANDLE fakeHandle, fileHandle;
+    BOOL ret = FALSE;
+
+    fakeHandle = CreateFileW(fake_msstyles_file, GENERIC_READ,
+                            FILE_SHARE_READ | FILE_SHARE_DELETE | FILE_SHARE_WRITE,
+                            NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    fileHandle = CreateFileW(path, GENERIC_READ,
+                            FILE_SHARE_READ | FILE_SHARE_DELETE | FILE_SHARE_WRITE,
+                            NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (fileHandle != INVALID_HANDLE_VALUE && fakeHandle != INVALID_HANDLE_VALUE)
+    {
+        if (GetFileInformationByHandle(fakeHandle, &fakeInfo) &&
+            GetFileInformationByHandle(fileHandle, &fileInfo))
+        {
+            if (fakeInfo.dwVolumeSerialNumber == fileInfo.dwVolumeSerialNumber &&
+                fakeInfo.nFileIndexHigh == fileInfo.nFileIndexHigh &&
+                fakeInfo.nFileIndexLow == fileInfo.nFileIndexLow)
+            {
+                ret = TRUE;
+            }
+        }
+    }
+
+    if (fileHandle != INVALID_HANDLE_VALUE) CloseHandle(fileHandle);
+    if (fakeHandle != INVALID_HANDLE_VALUE) CloseHandle(fakeHandle);
+
+    return ret;
+}
+
+/**********************************************************************
+ *      Undocumented functions
+ */
+DWORD WINAPI QueryThemeServices(void)
+{
+    FIXME("stub\n");
+    return 3; /* This is what is returned under XP in most cases */
+}
+
+HRESULT WINAPI OpenThemeFile(LPCWSTR pszThemeFileName, LPCWSTR pszColorName,
+                             LPCWSTR pszSizeName, HTHEMEFILE *hThemeFile,
+                             DWORD unknown)
+{
+    TRACE("(%s,%s,%s,%p,%d)\n", debugstr_w(pszThemeFileName),
+          debugstr_w(pszColorName), debugstr_w(pszSizeName),
+          hThemeFile, unknown);
+
+    if (!is_fake_theme(pszThemeFileName))
+        return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
+
+    if (pszColorName && lstrcmpW(FAKE_COLOR, pszColorName))
+        return HRESULT_FROM_WIN32(ERROR_BAD_FORMAT);
+
+    if (pszSizeName && lstrcmpW(FAKE_SIZE, pszSizeName))
+        return HRESULT_FROM_WIN32(ERROR_BAD_FORMAT);
+
+    *hThemeFile = (HTHEMEFILE)0xdeafbeef;
+    return S_OK;
+}
+
+HRESULT WINAPI CloseThemeFile(HTHEMEFILE hThemeFile)
+{
+    TRACE("(%p)\n", hThemeFile);
+    return S_OK;
+}
+
+HRESULT WINAPI ApplyTheme(HTHEMEFILE hThemeFile, char *unknown, HWND hWnd)
+{
+    TRACE("(%p,%s,%p)\n", hThemeFile, unknown, hWnd);
+    return S_OK;
+}
+
+HRESULT WINAPI GetThemeDefaults(LPCWSTR pszThemeFileName, LPWSTR pszColorName,
+                                DWORD dwColorNameLen, LPWSTR pszSizeName,
+                                DWORD dwSizeNameLen)
+{
+    TRACE("(%s,%p,%d,%p,%d)\n", debugstr_w(pszThemeFileName),
+          pszColorName, dwColorNameLen,
+          pszSizeName, dwSizeNameLen);
+
+    if (!is_fake_theme(pszThemeFileName))
+        return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
+
+    lstrcpynW(pszColorName, FAKE_COLOR, dwColorNameLen);
+    lstrcpynW(pszSizeName, FAKE_SIZE, dwSizeNameLen);
+
+    return S_OK;
+}
+
+HRESULT WINAPI EnumThemes(LPCWSTR pszThemePath, EnumThemeProc callback,
+                          LPVOID lpData)
+{
+    TRACE("(%s,%p,%p)\n", debugstr_w(pszThemePath), callback, lpData);
+
+    /* FIXME: check path */
+    callback(NULL, fake_msstyles_file, FAKE_NAME, FAKE_NAME, NULL, lpData);
+
+    return S_OK;
+}
+
+HRESULT WINAPI EnumThemeColors(LPWSTR pszThemeFileName, LPWSTR pszSizeName,
+                               DWORD dwColorNum, PTHEMENAMES pszColorNames)
+{
+    TRACE("(%s,%s,%d)\n", debugstr_w(pszThemeFileName),
+          debugstr_w(pszSizeName), dwColorNum);
+
+    if (!is_fake_theme(pszThemeFileName))
+        return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
+
+    if (pszSizeName && lstrcmpW(FAKE_SIZE, pszSizeName))
+        return E_PROP_ID_UNSUPPORTED;
+
+    if (dwColorNum)
+        return E_PROP_ID_UNSUPPORTED;
+
+    lstrcpynW(pszColorNames->szName, FAKE_COLOR,
+              sizeof (pszColorNames->szName) / sizeof (WCHAR));
+    lstrcpynW(pszColorNames->szDisplayName, FAKE_COLOR,
+              sizeof (pszColorNames->szDisplayName) / sizeof (WCHAR));
+    lstrcpynW(pszColorNames->szTooltip, FAKE_COLOR,
+              sizeof (pszColorNames->szTooltip) / sizeof (WCHAR));
+
+    return S_OK;
+}
+
+HRESULT WINAPI EnumThemeSizes(LPWSTR pszThemeFileName, LPWSTR pszColorName,
+                              DWORD dwSizeNum, PTHEMENAMES pszSizeNames)
+{
+    TRACE("(%s,%s,%d)\n", debugstr_w(pszThemeFileName),
+          debugstr_w(pszColorName), dwSizeNum);
+
+    if (!is_fake_theme(pszThemeFileName))
+        return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
+
+    if (pszColorName && lstrcmpW(FAKE_COLOR, pszColorName))
+        return E_PROP_ID_UNSUPPORTED;
+
+    if (dwSizeNum)
+        return E_PROP_ID_UNSUPPORTED;
+
+    lstrcpynW(pszSizeNames->szName, FAKE_SIZE,
+              sizeof (pszSizeNames->szName) / sizeof (WCHAR));
+    lstrcpynW(pszSizeNames->szDisplayName, FAKE_SIZE,
+              sizeof (pszSizeNames->szDisplayName) / sizeof (WCHAR));
+    lstrcpynW(pszSizeNames->szTooltip, FAKE_SIZE,
+              sizeof (pszSizeNames->szTooltip) / sizeof (WCHAR));
+
+    return S_OK;
+}
+
+HRESULT WINAPI ParseThemeIniFile(LPCWSTR pszIniFileName, LPWSTR pszUnknown,
+                                 ParseThemeIniFileProc callback, LPVOID lpData)
+{
+    FIXME("%s %s: stub\n", debugstr_w(pszIniFileName), debugstr_w(pszUnknown));
+    return ERROR_CALL_NOT_IMPLEMENTED;
+}
+
+HRESULT WINAPI CheckThemeSignature(LPCWSTR pszThemeFileName)
+{
+    if (!is_fake_theme(pszThemeFileName))
+        return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
+
+    return S_OK;
 }
 
 BOOL WINAPI DllMain(HINSTANCE hinstance, DWORD reason, LPVOID reserved)
