@@ -20,6 +20,8 @@
 
 #include "uxthemegtk_internal.h"
 
+#include <stdlib.h>
+
 #include <vsstyle.h>
 #include <vssym32.h>
 #include <winerror.h>
@@ -27,10 +29,27 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-static GtkWidget *window = NULL;
-static GtkWidget *menubar = NULL;
-static GtkWidget *menuitem = NULL;
-static GtkWidget *menu = NULL;
+typedef struct _menu_theme
+{
+    uxgtk_theme_t base;
+
+    GtkWidget *window;
+    GtkWidget *menubar;
+    GtkWidget *menuitem;
+    GtkWidget *menu;
+} menu_theme_t;
+
+static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
+                         int prop_id, GdkRGBA *rgba);
+static void destroy(uxgtk_theme_t *theme);
+
+static const uxgtk_theme_vtable_t menu_vtable = {
+    get_color,
+    NULL, /* draw_background */
+    NULL, /* get_part_size */
+    NULL, /* is_part_defined */
+    destroy
+};
 
 static inline GtkStateFlags get_popup_item_state_flags(int state_id)
 {
@@ -75,53 +94,32 @@ static inline GtkStateFlags get_state_flags(int part_id, int state_id)
     return GTK_STATE_FLAG_NORMAL;
 }
 
-static inline GtkStyleContext *get_style_context(int part_id)
+static inline GtkStyleContext *get_style_context(menu_theme_t *theme, int part_id)
 {
     switch (part_id)
     {
         case MENU_BARBACKGROUND:
-            return pgtk_widget_get_style_context(menubar);
+            return pgtk_widget_get_style_context(theme->menubar);
 
         case MENU_POPUPBACKGROUND:
-            return pgtk_widget_get_style_context(menu);
+            return pgtk_widget_get_style_context(theme->menu);
 
         case MENU_POPUPITEM:
-            return pgtk_widget_get_style_context(menuitem);
+            return pgtk_widget_get_style_context(theme->menuitem);
 
         default:
             FIXME("Unsupported menu part %d.\n", part_id);
             break;
     }
 
-    return pgtk_widget_get_style_context(menubar);
+    return pgtk_widget_get_style_context(theme->menubar);
 }
 
-void uxgtk_menu_init(void)
+static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
+                         int prop_id, GdkRGBA *rgba)
 {
-    TRACE("()\n");
-
-    window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
-    menubar = pgtk_menu_bar_new();
-    menuitem = pgtk_menu_item_new();
-    menu = pgtk_menu_new();
-
-    pgtk_container_add((GtkContainer*)window, menubar);
-    pgtk_menu_shell_append((GtkMenuShell*)menubar, menuitem);
-    pgtk_menu_item_set_submenu((GtkMenuItem*)menuitem, menu);
-}
-
-void uxgtk_menu_uninit(void)
-{
-    TRACE("()\n");
-    pgtk_widget_destroy(window);
-}
-
-HRESULT uxgtk_menu_get_color(int part_id, int state_id, int prop_id, GdkRGBA *rgba)
-{
-    GtkStyleContext *context = get_style_context(part_id);
+    GtkStyleContext *context = get_style_context((menu_theme_t *)theme, part_id);
     GtkStateFlags state = get_state_flags(part_id, state_id);
-
-    TRACE("(%d, %d)\n",  part_id, state_id);
 
     switch (prop_id)
     {
@@ -139,4 +137,35 @@ HRESULT uxgtk_menu_get_color(int part_id, int state_id, int prop_id, GdkRGBA *rg
     }
 
     return S_OK;
+}
+
+static void destroy(uxgtk_theme_t *theme)
+{
+    /* Destroy the toplevel widget */
+    pgtk_widget_destroy(((menu_theme_t *)theme)->window);
+
+    free(theme);
+}
+
+uxgtk_theme_t *uxgtk_menu_theme_create(void)
+{
+    menu_theme_t *theme;
+
+    TRACE("()\n");
+
+    theme = malloc(sizeof(menu_theme_t));
+    memset(theme, 0, sizeof(menu_theme_t));
+
+    theme->base.vtable = &menu_vtable;
+
+    theme->window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
+    theme->menubar = pgtk_menu_bar_new();
+    theme->menuitem = pgtk_menu_item_new();
+    theme->menu = pgtk_menu_new();
+
+    pgtk_container_add((GtkContainer*)theme->window, theme->menubar);
+    pgtk_menu_shell_append((GtkMenuShell*)theme->menubar, theme->menuitem);
+    pgtk_menu_item_set_submenu((GtkMenuItem*)theme->menuitem, theme->menu);
+
+    return &theme->base;
 }

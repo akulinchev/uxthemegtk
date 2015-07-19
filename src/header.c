@@ -20,17 +20,38 @@
 
 #include "uxthemegtk_internal.h"
 
+#include <stdlib.h>
+
 #include <vsstyle.h>
 #include <wine/debug.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-static GtkWidget *treeview = NULL;
+typedef struct _header_theme
+{
+    uxgtk_theme_t base;
 
-static void draw_header_item(cairo_t *cr, int state_id, int width, int height)
+    GtkWidget *treeview;
+} header_theme_t;
+
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height);
+static BOOL is_part_defined(int part_id, int state_id);
+static void destroy(uxgtk_theme_t *theme);
+
+static const uxgtk_theme_vtable_t header_vtable = {
+    NULL, /* get_color */
+    draw_background,
+    NULL, /* get_part_size */
+    is_part_defined,
+    destroy
+};
+
+static void draw_header_item(header_theme_t *theme, cairo_t *cr, int state_id,
+                             int width, int height)
 {
     GtkWidget *widget = pgtk_tree_view_column_get_button(
-        pgtk_tree_view_get_column((GtkTreeView*)treeview, 1));
+        pgtk_tree_view_get_column((GtkTreeView*)theme->treeview, 1));
     GtkStateFlags state = GTK_STATE_FLAG_NORMAL;
     GtkStyleContext *context = pgtk_widget_get_style_context(widget);
 
@@ -49,37 +70,46 @@ static void draw_header_item(cairo_t *cr, int state_id, int width, int height)
     pgtk_style_context_restore(context);
 }
 
-void uxgtk_header_init(void)
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height)
 {
-    TRACE("()\n");
-
-    treeview = pgtk_tree_view_new();
-
-    pgtk_tree_view_append_column((GtkTreeView*)treeview, pgtk_tree_view_column_new());
-    pgtk_tree_view_append_column((GtkTreeView*)treeview, pgtk_tree_view_column_new());
-    pgtk_tree_view_append_column((GtkTreeView*)treeview, pgtk_tree_view_column_new());
-}
-
-void uxgtk_header_uninit(void)
-{
-    TRACE("()\n");
-    pgtk_widget_destroy(treeview);
-}
-
-void uxgtk_header_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
-{
-    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+    header_theme_t *header_theme = (header_theme_t *)theme;
 
     if (part_id == HP_HEADERITEM)
-        draw_header_item(cr, state_id, width, height);
+        draw_header_item(header_theme, cr, state_id, width, height);
     else
         FIXME("Unsupported header part %d.\n", part_id);
 }
 
-BOOL uxgtk_header_is_part_defined(int part_id, int state_id)
+static BOOL is_part_defined(int part_id, int state_id)
 {
-    TRACE("(%d, %d)\n", part_id, state_id);
-
     /* comctl32.dll uses only HP_HEADERITEM */
     return (part_id == HP_HEADERITEM);
+}
+
+static void destroy(uxgtk_theme_t *theme)
+{
+    pgtk_widget_destroy(((header_theme_t *)theme)->treeview);
+
+    free(theme);
+}
+
+uxgtk_theme_t *uxgtk_header_theme_create(void)
+{
+    header_theme_t *theme;
+
+    TRACE("()\n");
+
+    theme = malloc(sizeof(header_theme_t));
+    memset(theme, 0, sizeof(header_theme_t));
+
+    theme->base.vtable = &header_vtable;
+
+    theme->treeview = pgtk_tree_view_new();
+
+    pgtk_tree_view_append_column((GtkTreeView*)theme->treeview, pgtk_tree_view_column_new());
+    pgtk_tree_view_append_column((GtkTreeView*)theme->treeview, pgtk_tree_view_column_new());
+    pgtk_tree_view_append_column((GtkTreeView*)theme->treeview, pgtk_tree_view_column_new());
+
+    return &theme->base;
 }

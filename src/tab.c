@@ -20,18 +20,41 @@
 
 #include "uxthemegtk_internal.h"
 
+#include <stdlib.h>
+
 #include <vsstyle.h>
 #include <wine/debug.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-static int tab_overlap = 0;
-static GtkWidget *notebook = NULL;
+typedef struct _tab_theme
+{
+    uxgtk_theme_t base;
 
-static void draw_tab_item(cairo_t *cr, int part_id, int state_id, int width, int height)
+    int tab_overlap;
+
+    GtkWidget *window;
+    GtkWidget *notebook;
+} tab_theme_t;
+
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height);
+static BOOL is_part_defined(int part_id, int state_id);
+static void destroy(uxgtk_theme_t *theme);
+
+static const uxgtk_theme_vtable_t tab_vtable = {
+    NULL, /* get_color */
+    draw_background,
+    NULL, /* get_part_size */
+    is_part_defined,
+    destroy
+};
+
+static void draw_tab_item(tab_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                          int width, int height)
 {
     int x = 0, new_width = width, new_height = height;
-    GtkStyleContext *context = pgtk_widget_get_style_context(notebook);
+    GtkStyleContext *context = pgtk_widget_get_style_context(theme->notebook);
     GtkRegionFlags region = 0;
 
     pgtk_style_context_save(context);
@@ -39,8 +62,8 @@ static void draw_tab_item(cairo_t *cr, int part_id, int state_id, int width, int
     /* Emulate the "-GtkNotebook-tab-overlap" style property */
     if (part_id == TABP_TABITEM || part_id == TABP_TABITEMRIGHTEDGE)
     {
-        x = -tab_overlap;
-        new_width += tab_overlap;
+        x = -theme->tab_overlap;
+        new_width += theme->tab_overlap;
     }
 
     /* Provide GTK a little bit more information about the tab position */
@@ -67,9 +90,9 @@ static void draw_tab_item(cairo_t *cr, int part_id, int state_id, int width, int
     pgtk_style_context_restore(context);
 }
 
-static void draw_tab_pane(cairo_t *cr, int width, int height)
+static void draw_tab_pane(tab_theme_t *theme, cairo_t *cr, int width, int height)
 {
-    GtkStyleContext *context = pgtk_widget_get_style_context(notebook);
+    GtkStyleContext *context = pgtk_widget_get_style_context(theme->notebook);
 
     pgtk_style_context_save(context);
 
@@ -84,44 +107,23 @@ static void draw_tab_pane(cairo_t *cr, int width, int height)
     pgtk_style_context_restore(context);
 }
 
-static void draw_tab_body(cairo_t *cr, int width, int height)
+static void draw_tab_body(tab_theme_t *theme, cairo_t *cr, int width, int height)
 {
-    GtkStyleContext *context = pgtk_widget_get_style_context(notebook);
+    GtkStyleContext *context = pgtk_widget_get_style_context(theme->notebook);
 
     /* Some borders are already drawned by draw_tab_pane */
     pgtk_render_background(context, cr, -4, -4, width + 4, height + 4);
 }
 
-void uxgtk_tab_init(void)
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height)
 {
+    tab_theme_t *tab_theme = (tab_theme_t *)theme;
     GtkStyleContext *context;
 
-    TRACE("()\n");
-
-    notebook = pgtk_notebook_new();
-
-    context = pgtk_widget_get_style_context(notebook);
-
-    pgtk_style_context_add_class(context, GTK_STYLE_CLASS_NOTEBOOK);
-    pgtk_style_context_add_class(context, GTK_STYLE_CLASS_TOP);
-
-    pgtk_widget_style_get(notebook, "tab-overlap", &tab_overlap, NULL);
-
-    TRACE("-GtkNotebook-tab-overlap: %d\n", tab_overlap);
-}
-
-void uxgtk_tab_uninit(void)
-{
-    TRACE("()\n");
-    pgtk_widget_destroy(notebook);
-}
-
-void uxgtk_tab_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
-{
-    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
-
     /* Draw a dialog background to fix some themes like Ambiance */
-    uxgtk_window_draw_background(cr, WP_DIALOG, 0, width, height - 1);
+    context = pgtk_widget_get_style_context(tab_theme->window);
+    pgtk_render_background(context, cr, 0, 0, width, height - 1);
 
     switch (part_id)
     {
@@ -133,15 +135,15 @@ void uxgtk_tab_draw_background(cairo_t *cr, int part_id, int state_id, int width
         case TABP_TOPTABITEMLEFTEDGE:
         case TABP_TOPTABITEMRIGHTEDGE:
         case TABP_TOPTABITEMBOTHEDGE:
-            draw_tab_item(cr, part_id, state_id, width, height);
+            draw_tab_item(tab_theme, cr, part_id, state_id, width, height);
             break;
 
         case TABP_PANE:
-            draw_tab_pane(cr, width, height);
+            draw_tab_pane(tab_theme, cr, width, height);
             break;
 
         case TABP_BODY:
-            draw_tab_body(cr, width, height);
+            draw_tab_body(tab_theme, cr, width, height);
             break;
 
         default:
@@ -150,10 +152,44 @@ void uxgtk_tab_draw_background(cairo_t *cr, int part_id, int state_id, int width
     }
 }
 
-BOOL uxgtk_tab_is_part_defined(int part_id, int state_id)
+static BOOL is_part_defined(int part_id, int state_id)
 {
-    TRACE("(%d, %d)\n", part_id, state_id);
-
     /* TABP_AEROWIZARDBODY is not used by comctl32.dll */
     return (part_id > 0 && part_id < TABP_AEROWIZARDBODY);
+}
+
+static void destroy(uxgtk_theme_t *theme)
+{
+    pgtk_widget_destroy(((tab_theme_t *)theme)->notebook);
+
+    free(theme);
+}
+
+uxgtk_theme_t *uxgtk_tab_theme_create(void)
+{
+    tab_theme_t *theme;
+    GtkStyleContext *context;
+
+    TRACE("()\n");
+
+    theme = malloc(sizeof(tab_theme_t));
+    memset(theme, 0, sizeof(tab_theme_t));
+
+    theme->base.vtable = &tab_vtable;
+
+    theme->window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
+    theme->notebook = pgtk_notebook_new();
+
+    pgtk_container_add((GtkContainer*)theme->window, theme->notebook);
+
+    context = pgtk_widget_get_style_context(theme->notebook);
+
+    pgtk_style_context_add_class(context, GTK_STYLE_CLASS_NOTEBOOK);
+    pgtk_style_context_add_class(context, GTK_STYLE_CLASS_TOP);
+
+    pgtk_widget_style_get(theme->notebook, "tab-overlap", &theme->tab_overlap, NULL);
+
+    TRACE("-GtkNotebook-tab-overlap: %d\n", theme->tab_overlap);
+
+    return &theme->base;
 }

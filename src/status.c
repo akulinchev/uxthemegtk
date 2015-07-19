@@ -20,25 +20,49 @@
 
 #include "uxthemegtk_internal.h"
 
+#include <stdlib.h>
+
 #include <vsstyle.h>
 #include <winerror.h>
 #include <wine/debug.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-static int grip_width = 0, grip_height = 0;
-static GtkWidget *window = NULL;
-
-static void draw_pane(cairo_t *cr, int width, int height)
+typedef struct _status_theme
 {
-    GtkStyleContext *context = pgtk_widget_get_style_context(window);
+    uxgtk_theme_t base;
+
+    int grip_width;
+    int grip_height;
+
+    GtkWidget *window;
+} status_theme_t;
+
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height);
+static HRESULT get_part_size(uxgtk_theme_t *theme, int part_id, int state_id,
+                             RECT *rect, SIZE *size);
+static BOOL is_part_defined(int part_id, int state_id);
+static void destroy(uxgtk_theme_t *theme);
+
+static const uxgtk_theme_vtable_t status_vtable = {
+    NULL, /* get_color */
+    draw_background,
+    get_part_size,
+    is_part_defined,
+    destroy
+};
+
+static void draw_pane(status_theme_t *theme, cairo_t *cr, int width, int height)
+{
+    GtkStyleContext *context = pgtk_widget_get_style_context(theme->window);
     pgtk_style_context_add_class(context, GTK_STYLE_CLASS_BACKGROUND);
     pgtk_render_background(context, cr, 0, 0, width, height);
 }
 
-static void draw_gripper(cairo_t *cr, int width, int height)
+static void draw_gripper(status_theme_t *theme, cairo_t *cr, int width, int height)
 {
-    GtkStyleContext *context = pgtk_widget_get_style_context(window);
+    GtkStyleContext *context = pgtk_widget_get_style_context(theme->window);
 
     pgtk_style_context_save(context);
 
@@ -50,41 +74,21 @@ static void draw_gripper(cairo_t *cr, int width, int height)
     pgtk_style_context_restore(context);
 }
 
-void uxgtk_status_init(void)
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height)
 {
-    TRACE("()\n");
-
-    window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
-
-    pgtk_widget_style_get(window,
-                          "resize-grip-width", &grip_width,
-                          "resize-grip-height", &grip_height,
-                          NULL);
-
-    TRACE("-GtkWindow-resize-grip-width: %d\n", grip_width);
-    TRACE("-GtkWindow-resize-grip-height: %d\n", grip_height);
-}
-
-void uxgtk_status_uninit(void)
-{
-    TRACE("()\n");
-    pgtk_widget_destroy(window);
-}
-
-void uxgtk_status_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
-{
-    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+    status_theme_t *status_theme = (status_theme_t *)theme;
 
     switch (part_id)
     {
         case 0:
         case SP_PANE:
         case SP_GRIPPERPANE:
-            draw_pane(cr, width, height);
+            draw_pane(status_theme, cr, width, height);
             break;
 
         case SP_GRIPPER:
-            draw_gripper(cr, width, height);
+            draw_gripper(status_theme, cr, width, height);
             break;
 
         default:
@@ -93,23 +97,53 @@ void uxgtk_status_draw_background(cairo_t *cr, int part_id, int state_id, int wi
     }
 }
 
-HRESULT uxgtk_status_get_part_size(int part_id, int state_id, RECT *rect, SIZE *size)
+static HRESULT get_part_size(uxgtk_theme_t *theme, int part_id, int state_id,
+                             RECT *rect, SIZE *size)
 {
-    TRACE("(%d, %d, %p, %p)\n", part_id, state_id, rect, size);
+    status_theme_t *status_theme = (status_theme_t *)theme;
 
     if (part_id != SP_GRIPPER)
         return E_FAIL;
 
-    size->cx = grip_width;
-    size->cy = grip_height;
+    size->cx = status_theme->grip_width;
+    size->cy = status_theme->grip_height;
 
     return S_OK;
 }
 
-BOOL uxgtk_status_is_part_defined(int part_id, int state_id)
+static BOOL is_part_defined(int part_id, int state_id)
 {
-    TRACE("(%d, %d)\n", part_id, state_id);
-
     /* comctl32.dll thinks SP_PANE == 0 */
     return (part_id >= 0 && part_id <= SP_GRIPPER);
+}
+
+static void destroy(uxgtk_theme_t *theme)
+{
+    pgtk_widget_destroy(((status_theme_t *)theme)->window);
+
+    free(theme);
+}
+
+uxgtk_theme_t *uxgtk_status_theme_create(void)
+{
+    status_theme_t *theme;
+
+    TRACE("()\n");
+
+    theme = malloc(sizeof(status_theme_t));
+    memset(theme, 0, sizeof(status_theme_t));
+
+    theme->base.vtable = &status_vtable;
+
+    theme->window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
+
+    pgtk_widget_style_get(theme->window,
+                          "resize-grip-width", &theme->grip_width,
+                          "resize-grip-height", &theme->grip_height,
+                          NULL);
+
+    TRACE("-GtkWindow-resize-grip-width: %d\n", theme->grip_width);
+    TRACE("-GtkWindow-resize-grip-height: %d\n", theme->grip_height);
+
+    return &theme->base;
 }

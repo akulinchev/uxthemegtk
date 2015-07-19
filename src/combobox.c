@@ -20,18 +20,62 @@
 
 #include "uxthemegtk_internal.h"
 
+#include <stdlib.h>
+
 #include <vsstyle.h>
 #include <wine/debug.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-static float arrow_scaling = 0.0;
-static int arrow_size = 0;
+typedef struct _combobox_theme
+{
+    uxgtk_theme_t base;
 
-static GtkWidget *combobox = NULL;
-static GtkWidget *button = NULL;
-static GtkWidget *entry = NULL;
-static GtkWidget *arrow = NULL;
+    int arrow_size;
+    float arrow_scaling;
+
+    GtkWidget *combobox;
+    GtkWidget *button;
+    GtkWidget *entry;
+    GtkWidget *arrow;
+} combobox_theme_t;
+
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height);
+static BOOL is_part_defined(int part_id, int state_id);
+static void destroy(uxgtk_theme_t *theme);
+
+static const uxgtk_theme_vtable_t combobox_vtable = {
+    NULL, /* get_color */
+    draw_background,
+    NULL, /* get_part_size */
+    is_part_defined,
+    destroy
+};
+
+static inline GtkStateFlags get_border_state_flags(int state_id)
+{
+    switch (state_id)
+    {
+        case CBB_NORMAL:
+            return GTK_STATE_FLAG_NORMAL;
+
+        case CBB_HOT:
+            return GTK_STATE_FLAG_PRELIGHT;
+
+        case CBB_FOCUSED:
+            return GTK_STATE_FLAG_FOCUSED;
+
+        case CBB_DISABLED:
+            return GTK_STATE_FLAG_INSENSITIVE;
+
+        default:
+            FIXME("Unknown edit text state %d.\n", state_id);
+            break;
+    }
+
+    return GTK_STATE_FLAG_NORMAL;
+}
 
 static inline GtkStateFlags get_dropdown_button_state_flags(int state_id)
 {
@@ -60,24 +104,31 @@ static inline GtkStateFlags get_dropdown_button_state_flags(int state_id)
 static void iter_callback(GtkWidget *widget, gpointer data)
 {
     if (pg_type_check_instance_is_a((GTypeInstance*)widget, pgtk_toggle_button_get_type()))
-        button = widget;
-    else if (pg_type_check_instance_is_a((GTypeInstance*)widget, pgtk_entry_get_type()))
-        entry = widget;
+        ((combobox_theme_t *)data)->button = widget;
 }
 
-static void draw_border(cairo_t *cr, int state_id, int width, int height)
+static void draw_border(combobox_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
-    /* I use an edit control here because .combobox-entry has no right border sometimes */
-    int state = (state_id == CBB_DISABLED) ? ETS_DISABLED : ETS_NORMAL;
-    uxgtk_edit_draw_background(cr, EP_EDITTEXT, state, width, height);
+    GtkStateFlags state = get_border_state_flags(state_id);
+    GtkStyleContext *context = pgtk_widget_get_style_context(theme->entry);
+
+    pgtk_style_context_save(context);
+
+    pgtk_style_context_set_state(context, state);
+
+    pgtk_render_background(context, cr, 0, 0, width, height);
+    pgtk_render_frame(context, cr, 0, 0, width, height);
+
+    pgtk_style_context_restore(context);
 }
 
-static void draw_dropdown_button(cairo_t *cr, int state_id, int width, int height)
+static void draw_dropdown_button(combobox_theme_t *theme, cairo_t *cr, int state_id,
+                                 int width, int height)
 {
     int arrow_x, arrow_y, arrow_width;
     GtkStateFlags state = get_dropdown_button_state_flags(state_id);
-    GtkStyleContext *button_context = pgtk_widget_get_style_context(button);
-    GtkStyleContext *arrow_context = pgtk_widget_get_style_context(arrow);
+    GtkStyleContext *button_context = pgtk_widget_get_style_context(theme->button);
+    GtkStyleContext *arrow_context = pgtk_widget_get_style_context(theme->arrow);
 
     pgtk_style_context_save(button_context);
 
@@ -93,7 +144,7 @@ static void draw_dropdown_button(cairo_t *cr, int state_id, int width, int heigh
 
     pgtk_style_context_set_state(arrow_context, state);
 
-    arrow_width = arrow_size * arrow_scaling;
+    arrow_width = theme->arrow_size * theme->arrow_scaling;
 
     arrow_x = (width - arrow_width + 3) / 2;
     arrow_y = (height - arrow_width) / 2;
@@ -103,48 +154,20 @@ static void draw_dropdown_button(cairo_t *cr, int state_id, int width, int heigh
     pgtk_style_context_restore(arrow_context);
 }
 
-void uxgtk_combobox_init(void)
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height)
 {
-    TRACE("()\n");
-
-    combobox = pgtk_combo_box_new_with_entry();
-
-    /* Extract entry and button */
-    pgtk_container_forall((GtkContainer*)combobox, iter_callback, NULL);
-
-    arrow = pgtk_bin_get_child((GtkBin*)button);
-
-    pgtk_widget_style_get(combobox,
-                          "arrow-scaling", &arrow_scaling,
-                          "arrow-size", &arrow_size,
-                          NULL);
-
-    if (arrow_scaling == 1)
-        arrow_scaling = 0.6; /* Hello Ambiance */
-
-    TRACE("-GtkComboBox-arrow-scaling: %f\n", arrow_scaling);
-    TRACE("-GtkComboBox-arrow-size: %d\n", arrow_size);
-}
-
-void uxgtk_combobox_uninit(void)
-{
-    TRACE("()\n");
-    pgtk_widget_destroy(combobox);
-}
-
-void uxgtk_combobox_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
-{
-    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+    combobox_theme_t *combobox_theme = (combobox_theme_t *)theme;
 
     switch (part_id)
     {
         case 0:
         case CP_BORDER:
-            draw_border(cr, state_id, width, height);
+            draw_border(combobox_theme, cr, state_id, width, height);
             break;
 
         case CP_DROPDOWNBUTTON:
-            draw_dropdown_button(cr, state_id, width, height);
+            draw_dropdown_button(combobox_theme, cr, state_id, width, height);
             break;
 
         default:
@@ -153,8 +176,53 @@ void uxgtk_combobox_draw_background(cairo_t *cr, int part_id, int state_id, int 
     }
 }
 
-BOOL uxgtk_combobox_is_part_defined(int part_id, int state_id)
+static BOOL is_part_defined(int part_id, int state_id)
 {
-    TRACE("(%d, %d)\n", part_id, state_id);
     return (part_id == 0 || part_id == CP_DROPDOWNBUTTON);
+}
+
+static void destroy(uxgtk_theme_t *theme)
+{
+    combobox_theme_t *combobox_theme = (combobox_theme_t *)theme;
+
+    /* Destroy the toplevel widgets */
+    pgtk_widget_destroy(combobox_theme->combobox);
+    pgtk_widget_destroy(combobox_theme->entry);
+
+    free(theme);
+}
+
+uxgtk_theme_t *uxgtk_combobox_theme_create(void)
+{
+    combobox_theme_t *theme;
+
+    TRACE("()\n");
+
+    theme = malloc(sizeof(combobox_theme_t));
+    memset(theme, 0, sizeof(combobox_theme_t));
+
+    theme->base.vtable = &combobox_vtable;
+
+    /* I use a simple entry because .combobox-entry has no right border sometimes */
+    theme->entry = pgtk_entry_new();
+    theme->combobox = pgtk_combo_box_new_with_entry();
+
+    /* Extract button */
+    pgtk_container_forall((GtkContainer*)theme->combobox, iter_callback, theme);
+
+    theme->arrow = pgtk_bin_get_child((GtkBin*)theme->button);
+
+    pgtk_widget_style_get(theme->combobox,
+                          "arrow-size", &theme->arrow_size,
+                          "arrow-scaling", &theme->arrow_scaling,
+                          NULL);
+
+    /* A workaround for old themes like Ambiance */
+    if (theme->arrow_scaling == 1)
+        theme->arrow_scaling = 0.6;
+
+    TRACE("-GtkComboBox-arrow-scaling: %f\n", theme->arrow_scaling);
+    TRACE("-GtkComboBox-arrow-size: %d\n", theme->arrow_size);
+
+    return &theme->base;
 }

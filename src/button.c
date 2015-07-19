@@ -20,6 +20,8 @@
 
 #include "uxthemegtk_internal.h"
 
+#include <stdlib.h>
+
 #include <vsstyle.h>
 #include <vssym32.h>
 #include <winerror.h>
@@ -28,18 +30,40 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-static int indicator_size = 0;
+typedef struct _button_theme
+{
+    uxgtk_theme_t base;
 
-static GtkWidget *window = NULL;
-static GtkWidget *fixed = NULL;
-static GtkWidget *button = NULL;
-static GtkWidget *check = NULL;
-static GtkWidget *radio = NULL;
-static GtkWidget *frame = NULL;
-static GtkWidget *label = NULL;
-static GtkWidget *button_label = NULL;
-static GtkWidget *check_label = NULL;
-static GtkWidget *radio_label = NULL;
+    int indicator_size;
+
+    GtkWidget *window;
+    GtkWidget *fixed;
+    GtkWidget *button;
+    GtkWidget *check;
+    GtkWidget *radio;
+    GtkWidget *frame;
+    GtkWidget *label;
+    GtkWidget *button_label;
+    GtkWidget *check_label;
+    GtkWidget *radio_label;
+} button_theme_t;
+
+static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
+                         int prop_id, GdkRGBA *rgba);
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height);
+static HRESULT get_part_size(uxgtk_theme_t *theme, int part_id, int state_id,
+                             RECT *rect, SIZE *size);
+static BOOL is_part_defined(int part_id, int state_id);
+static void destroy(uxgtk_theme_t *theme);
+
+static const uxgtk_theme_vtable_t button_vtable = {
+    get_color,
+    draw_background,
+    get_part_size,
+    is_part_defined,
+    destroy
+};
 
 static inline GtkStateFlags get_push_button_state_flags(int state_id)
 {
@@ -170,8 +194,88 @@ static inline GtkStateFlags get_groupbox_state_flags(int state_id)
     return GTK_STATE_FLAG_NORMAL;
 }
 
-static void get_border_color(int part_id, int state_id, GdkRGBA *rgba)
+static GtkWidget *get_button(button_theme_t *theme)
 {
+    if (theme->button == NULL)
+    {
+        theme->button = pgtk_button_new();
+        pgtk_container_add((GtkContainer*)theme->fixed, theme->button);
+    }
+
+    return theme->button;
+}
+
+static GtkWidget *get_radio(button_theme_t *theme)
+{
+    if (theme->radio == NULL)
+    {
+        theme->radio = pgtk_radio_button_new(NULL);
+        pgtk_container_add((GtkContainer*)theme->fixed, theme->radio);
+    }
+
+    return theme->radio;
+}
+
+static GtkWidget *get_frame(button_theme_t *theme)
+{
+    if (theme->frame == NULL)
+    {
+        theme->frame = pgtk_frame_new(NULL);
+        pgtk_container_add((GtkContainer*)theme->fixed, theme->frame);
+    }
+
+    return theme->frame;
+}
+
+static GtkWidget *get_label(button_theme_t *theme)
+{
+    if (theme->label == NULL)
+    {
+        theme->label = pgtk_label_new(NULL);
+        pgtk_container_add((GtkContainer*)theme->fixed, theme->label);
+    }
+
+    return theme->label;
+}
+
+static GtkWidget *get_button_label(button_theme_t *theme)
+{
+    if (theme->button_label == NULL)
+    {
+        GtkWidget *button = get_button(theme);
+        theme->button_label = pgtk_label_new(NULL);
+        pgtk_container_add((GtkContainer*)button, theme->button_label);
+    }
+
+    return theme->button_label;
+}
+
+static GtkWidget *get_check_label(button_theme_t *theme)
+{
+    if (theme->check_label == NULL)
+    {
+        theme->check_label = pgtk_label_new(NULL);
+        pgtk_container_add((GtkContainer*)theme->check, theme->check_label);
+    }
+
+    return theme->check_label;
+}
+
+static GtkWidget *get_radio_label(button_theme_t *theme)
+{
+    if (theme->radio_label == NULL)
+    {
+        GtkWidget *radio = get_radio(theme);
+        theme->radio_label = pgtk_label_new(NULL);
+        pgtk_container_add((GtkContainer*)radio, theme->radio_label);
+    }
+
+    return theme->radio_label;
+}
+
+static void get_border_color(button_theme_t *theme, int part_id, int state_id, GdkRGBA *rgba)
+{
+    GtkWidget *frame = get_frame(theme);
     GtkStyleContext *context = pgtk_widget_get_style_context(frame);
     GtkStateFlags state = 0;
 
@@ -207,30 +311,31 @@ static void get_border_color(int part_id, int state_id, GdkRGBA *rgba)
     pgtk_style_context_restore(context);
 }
 
-static void get_text_color(int part_id, int state_id, GdkRGBA *rgba)
+static void get_text_color(button_theme_t *theme, int part_id, int state_id, GdkRGBA *rgba)
 {
+    GtkWidget *widget = NULL;
     GtkStyleContext *context = NULL;
     GtkStateFlags state = 0;
 
     switch (part_id)
     {
         case BP_PUSHBUTTON:
-            context = pgtk_widget_get_style_context(button_label);
+            widget = get_button_label(theme);
             state = get_push_button_state_flags(state_id);
             break;
 
         case BP_RADIOBUTTON:
-            context = pgtk_widget_get_style_context(radio_label);
+            widget = get_radio_label(theme);
             state = get_radio_button_state_flags(state_id);
             break;
 
         case BP_CHECKBOX:
-            context = pgtk_widget_get_style_context(check_label);
+            widget = get_check_label(theme);
             state = get_checkbox_state_flags(state_id);
             break;
 
         case BP_GROUPBOX:
-            context = pgtk_widget_get_style_context(label);
+            widget = get_label(theme);
             state = get_groupbox_state_flags(state_id);
             break;
 
@@ -239,11 +344,15 @@ static void get_text_color(int part_id, int state_id, GdkRGBA *rgba)
             break;
     }
 
+    context = pgtk_widget_get_style_context(widget);
+
     pgtk_style_context_get_color(context, state, rgba);
 }
 
-static void draw_push_button(cairo_t *cr, int state_id, int width, int height)
+static void draw_push_button(button_theme_t *theme, cairo_t *cr, int state_id,
+                             int width, int height)
 {
+    GtkWidget *button = get_button(theme);
     GtkStyleContext *context = pgtk_widget_get_style_context(button);
     GtkStateFlags state = get_push_button_state_flags(state_id);
 
@@ -260,8 +369,9 @@ static void draw_push_button(cairo_t *cr, int state_id, int width, int height)
     pgtk_style_context_restore(context);
 }
 
-static void draw_radio_button(cairo_t *cr, int state_id)
+static void draw_radio_button(button_theme_t *theme, cairo_t *cr, int state_id)
 {
+    GtkWidget *radio = get_radio(theme);
     GtkStyleContext *context = pgtk_widget_get_style_context(radio);
     GtkStateFlags state = get_radio_button_state_flags(state_id);
 
@@ -271,14 +381,14 @@ static void draw_radio_button(cairo_t *cr, int state_id)
 
     pgtk_style_context_set_state(context, state);
 
-    pgtk_render_option(context, cr, 0, 0, indicator_size, indicator_size);
+    pgtk_render_option(context, cr, 0, 0, theme->indicator_size, theme->indicator_size);
 
     pgtk_style_context_restore(context);
 }
 
-static void draw_checkbox(cairo_t *cr, int state_id)
+static void draw_checkbox(button_theme_t *theme, cairo_t *cr, int state_id)
 {
-    GtkStyleContext *context = pgtk_widget_get_style_context(check);
+    GtkStyleContext *context = pgtk_widget_get_style_context(theme->check);
     GtkStateFlags state = get_checkbox_state_flags(state_id);
 
     pgtk_style_context_save(context);
@@ -287,60 +397,24 @@ static void draw_checkbox(cairo_t *cr, int state_id)
 
     pgtk_style_context_set_state(context, state);
 
-    pgtk_render_check(context, cr, 0, 0, indicator_size, indicator_size);
+    pgtk_render_check(context, cr, 0, 0, theme->indicator_size, theme->indicator_size);
 
     pgtk_style_context_restore(context);
 }
 
-void uxgtk_button_init(void)
+static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
+                         int prop_id, GdkRGBA *rgba)
 {
-    TRACE("()\n");
-
-    window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
-    fixed = pgtk_fixed_new();
-    button = pgtk_button_new();
-    check = pgtk_check_button_new();
-    radio = pgtk_radio_button_new(NULL);
-    frame = pgtk_frame_new(NULL);
-    label = pgtk_label_new(NULL);
-    button_label = pgtk_label_new(NULL);
-    check_label = pgtk_label_new(NULL);
-    radio_label = pgtk_label_new(NULL);
-
-    pgtk_container_add((GtkContainer*)window, fixed);
-    pgtk_container_add((GtkContainer*)fixed, button);
-    pgtk_container_add((GtkContainer*)fixed, check);
-    pgtk_container_add((GtkContainer*)fixed, radio);
-    pgtk_container_add((GtkContainer*)fixed, frame);
-    pgtk_container_add((GtkContainer*)fixed, label);
-    pgtk_container_add((GtkContainer*)button, button_label);
-    pgtk_container_add((GtkContainer*)check, check_label);
-    pgtk_container_add((GtkContainer*)radio, radio_label);
-
-    /* Used for both check- and radiobuttons */
-    pgtk_widget_style_get(check, "indicator-size", &indicator_size, NULL);
-
-    TRACE("-GtkCheckButton-indicator-size: %d\n", indicator_size);
-}
-
-void uxgtk_button_uninit(void)
-{
-    TRACE("()\n");
-    pgtk_widget_destroy(window);
-}
-
-HRESULT uxgtk_button_get_color(int part_id, int state_id, int prop_id, GdkRGBA *rgba)
-{
-    TRACE("(%d, %d, %d, %p)\n", part_id, state_id, prop_id, rgba);
+    button_theme_t *button_theme = (button_theme_t *)theme;
 
     switch (prop_id)
     {
         case TMT_BORDERCOLOR:
-            get_border_color(part_id, state_id, rgba);
+            get_border_color(button_theme, part_id, state_id, rgba);
             break;
 
         case TMT_TEXTCOLOR:
-            get_text_color(part_id, state_id, rgba);
+            get_text_color(button_theme, part_id, state_id, rgba);
             break;
 
         default:
@@ -351,23 +425,23 @@ HRESULT uxgtk_button_get_color(int part_id, int state_id, int prop_id, GdkRGBA *
     return S_OK;
 }
 
-void uxgtk_button_draw_background(cairo_t *cr, int part_id, int state_id,
-                                  int width, int height)
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height)
 {
-    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+    button_theme_t *button_theme = (button_theme_t *)theme;
 
     switch (part_id)
     {
         case BP_PUSHBUTTON:
-            draw_push_button(cr, state_id, width, height);
+            draw_push_button(button_theme, cr, state_id, width, height);
             break;
 
         case BP_RADIOBUTTON:
-            draw_radio_button(cr, state_id);
+            draw_radio_button(button_theme, cr, state_id);
             break;
 
         case BP_CHECKBOX:
-            draw_checkbox(cr, state_id);
+            draw_checkbox(button_theme, cr, state_id);
             break;
 
         case BP_GROUPBOX:
@@ -379,16 +453,17 @@ void uxgtk_button_draw_background(cairo_t *cr, int part_id, int state_id,
     }
 }
 
-HRESULT uxgtk_button_get_part_size(int part_id, int state_id, RECT *rect, SIZE *size)
+static HRESULT get_part_size(uxgtk_theme_t *theme, int part_id, int state_id,
+                             RECT *rect, SIZE *size)
 {
-    TRACE("(%d, %d, %p, %p)\n", part_id, state_id, rect, size);
+    button_theme_t *button_theme = (button_theme_t *)theme;
 
     switch (part_id)
     {
         case BP_CHECKBOX:
         case BP_RADIOBUTTON:
-            size->cx = indicator_size;
-            size->cy = indicator_size;
+            size->cx = button_theme->indicator_size;
+            size->cy = button_theme->indicator_size;
             return S_OK;
 
         default:
@@ -399,14 +474,47 @@ HRESULT uxgtk_button_get_part_size(int part_id, int state_id, RECT *rect, SIZE *
     return E_FAIL;
 }
 
-BOOL uxgtk_button_is_part_defined(int part_id, int state_id)
+static BOOL is_part_defined(int part_id, int state_id)
 {
-    TRACE("(%d, %d)\n", part_id, state_id);
-
     /* Some undocumented checkbox states are not supported */
     if (part_id == BP_CHECKBOX)
         return (state_id < CBS_IMPLICITNORMAL);
 
     /* Command buttons are not implemented */
     return (part_id > 0 && part_id < BP_COMMANDLINK);
+}
+
+static void destroy(uxgtk_theme_t *theme)
+{
+    /* Destroy the toplevel widget */
+    pgtk_widget_destroy(((button_theme_t *)theme)->window);
+
+    free(theme);
+}
+
+uxgtk_theme_t *uxgtk_button_theme_create(void)
+{
+    button_theme_t *theme;
+
+    TRACE("()\n");
+
+    theme = malloc(sizeof(button_theme_t));
+    memset(theme, 0, sizeof(button_theme_t));
+
+    theme->base.vtable = &button_vtable;
+
+    /* This widgets are always needed. Other will be created on demand. */
+    theme->window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
+    theme->fixed = pgtk_fixed_new();
+    theme->check = pgtk_check_button_new();
+
+    pgtk_container_add((GtkContainer*)theme->window, theme->fixed);
+    pgtk_container_add((GtkContainer*)theme->fixed, theme->check);
+
+    /* Used for both check- and radiobuttons */
+    pgtk_widget_style_get(theme->check, "indicator-size", &theme->indicator_size, NULL);
+
+    TRACE("-GtkCheckButton-indicator-size: %d\n", theme->indicator_size);
+
+    return &theme->base;
 }

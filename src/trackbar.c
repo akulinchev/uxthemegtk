@@ -20,18 +20,40 @@
 
 #include "uxthemegtk_internal.h"
 
+#include <stdlib.h>
+
 #include <vsstyle.h>
 #include <wine/debug.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-static int slider_width = 0, slider_height = 0;
-static GtkWidget *scale = NULL;
+typedef struct _trackbar_theme
+{
+    uxgtk_theme_t base;
 
-static void draw_track(cairo_t *cr, int part_id, int width, int height)
+    int slider_length;
+    int slider_width;
+
+    GtkWidget *scale;
+} trackbar_theme_t;
+
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height);
+static BOOL is_part_defined(int part_id, int state_id);
+static void destroy(uxgtk_theme_t *theme);
+
+static const uxgtk_theme_vtable_t trackbar_vtable = {
+    NULL, /* get_color */
+    draw_background,
+    NULL, /* get_part_size */
+    is_part_defined,
+    destroy
+};
+
+static void draw_track(trackbar_theme_t *theme, cairo_t *cr, int part_id, int width, int height)
 {
     int x1, x2, y1, y2;
-    GtkStyleContext *context = pgtk_widget_get_style_context(scale);
+    GtkStyleContext *context = pgtk_widget_get_style_context(theme->scale);
 
     pgtk_style_context_save(context);
 
@@ -55,9 +77,9 @@ static void draw_track(cairo_t *cr, int part_id, int width, int height)
     pgtk_style_context_restore(context);
 }
 
-static void draw_thumb(cairo_t *cr, int state_id, int width, int height)
+static void draw_thumb(trackbar_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
-    GtkStyleContext *context = pgtk_widget_get_style_context(scale);
+    GtkStyleContext *context = pgtk_widget_get_style_context(theme->scale);
     GtkStateFlags state = GTK_STATE_FLAG_NORMAL;
 
     pgtk_style_context_save(context);
@@ -70,48 +92,28 @@ static void draw_thumb(cairo_t *cr, int state_id, int width, int height)
     pgtk_style_context_set_state(context, state);
 
     if (width > height)
-        if (slider_width > slider_height)
+        if (theme->slider_length > theme->slider_width)
             pgtk_style_context_add_class(context, GTK_STYLE_CLASS_HORIZONTAL);
         else
             pgtk_style_context_add_class(context, GTK_STYLE_CLASS_VERTICAL);
     else
-        if (slider_width > slider_height)
+        if (theme->slider_length > theme->slider_width)
             pgtk_style_context_add_class(context, GTK_STYLE_CLASS_VERTICAL);
         else
             pgtk_style_context_add_class(context, GTK_STYLE_CLASS_HORIZONTAL);
 
     pgtk_style_context_add_class(context, GTK_STYLE_CLASS_SLIDER);
 
-    pgtk_render_slider(context, cr, 0, 0, slider_width, slider_height,
+    pgtk_render_slider(context, cr, 0, 0, theme->slider_length, theme->slider_width,
                       GTK_ORIENTATION_HORIZONTAL);
 
     pgtk_style_context_restore(context);
 }
 
-void uxgtk_trackbar_init(void)
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height)
 {
-    TRACE("()\n");
-
-    scale = pgtk_scale_new(GTK_ORIENTATION_HORIZONTAL, NULL);
-
-    pgtk_widget_style_get(scale,
-                          "slider-length", &slider_width,
-                          "slider-width", &slider_height, /* Yes, it is */
-                          NULL);
-
-    TRACE("-GtkScale-slider-length: %d\n", slider_width);
-    TRACE("-GtkScale-slider-width: %d\n",slider_height);
-}
-
-void uxgtk_trackbar_uninit(void)
-{
-    TRACE("()\n");
-    pgtk_widget_destroy(scale);
-}
-
-void uxgtk_trackbar_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
-{
-    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+    trackbar_theme_t *trackbar_theme = (trackbar_theme_t *)theme;
 
     switch (part_id)
     {
@@ -121,12 +123,12 @@ void uxgtk_trackbar_draw_background(cairo_t *cr, int part_id, int state_id, int 
         case TKP_THUMBVERT:
         case TKP_THUMBLEFT:
         case TKP_THUMBRIGHT:
-            draw_thumb(cr, state_id, width, height);
+            draw_thumb(trackbar_theme, cr, state_id, width, height);
             break;
 
         case TKP_TRACK:
         case TKP_TRACKVERT:
-            draw_track(cr, part_id, width, height);
+            draw_track(trackbar_theme, cr, part_id, width, height);
             break;
 
         default:
@@ -135,8 +137,38 @@ void uxgtk_trackbar_draw_background(cairo_t *cr, int part_id, int state_id, int 
     }
 }
 
-BOOL uxgtk_trackbar_is_part_defined(int part_id, int state_id)
+static BOOL is_part_defined(int part_id, int state_id)
 {
-    TRACE("(%d, %d)\n", part_id, state_id);
     return (part_id > 0 && part_id < TKP_TICS);
+}
+
+static void destroy(uxgtk_theme_t *theme)
+{
+    pgtk_widget_destroy(((trackbar_theme_t *)theme)->scale);
+
+    free(theme);
+}
+
+uxgtk_theme_t *uxgtk_trackbar_theme_create(void)
+{
+    trackbar_theme_t *theme;
+
+    TRACE("()\n");
+
+    theme = malloc(sizeof(trackbar_theme_t));
+    memset(theme, 0, sizeof(trackbar_theme_t));
+
+    theme->base.vtable = &trackbar_vtable;
+
+    theme->scale = pgtk_scale_new(GTK_ORIENTATION_HORIZONTAL, NULL);
+
+    pgtk_widget_style_get(theme->scale,
+                          "slider-length", &theme->slider_length,
+                          "slider-width", &theme->slider_width,
+                          NULL);
+
+    TRACE("-GtkScale-slider-length: %d\n", theme->slider_length);
+    TRACE("-GtkScale-slider-width: %d\n", theme->slider_width);
+
+    return &theme->base;
 }

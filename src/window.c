@@ -20,6 +20,8 @@
 
 #include "uxthemegtk_internal.h"
 
+#include <stdlib.h>
+
 #include <vsstyle.h>
 #include <vssym32.h>
 #include <winerror.h>
@@ -27,34 +29,33 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-static GtkWidget *window = NULL;
-
-void uxgtk_window_init(void)
+typedef struct _window_theme
 {
-    GtkStyleContext *context;
+    uxgtk_theme_t base;
 
-    TRACE("()\n");
+    GtkWidget *window;
+} window_theme_t;
 
-    window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
+static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
+                         int prop_id, GdkRGBA *rgba);
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height);
+static BOOL is_part_defined(int part_id, int state_id);
+static void destroy(uxgtk_theme_t *theme);
 
-    context = pgtk_widget_get_style_context(window);
+static const uxgtk_theme_vtable_t window_vtable = {
+    get_color,
+    draw_background,
+    NULL, /* get_part_size */
+    is_part_defined,
+    destroy
+};
 
-    pgtk_style_context_add_class(context, GTK_STYLE_CLASS_BACKGROUND);
-}
-
-void uxgtk_window_uninit(void)
+static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
+                         int prop_id, GdkRGBA *rgba)
 {
-    TRACE("()\n");
-    pgtk_widget_destroy(window);
-}
-
-HRESULT uxgtk_window_get_color(int part_id, int state_id, int prop_id, GdkRGBA *rgba)
-{
-    GtkStyleContext *context;
-
-    TRACE("()\n");
-
-    context = pgtk_widget_get_style_context(window);
+    window_theme_t *window_theme = (window_theme_t *)theme;
+    GtkStyleContext *context = pgtk_widget_get_style_context(window_theme->window);
 
     switch (prop_id)
     {
@@ -74,13 +75,11 @@ HRESULT uxgtk_window_get_color(int part_id, int state_id, int prop_id, GdkRGBA *
     return S_OK;
 }
 
-void uxgtk_window_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height)
 {
-    GtkStyleContext *context;
-
-    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
-
-    context = pgtk_widget_get_style_context(window);
+    window_theme_t *window_theme = (window_theme_t *)theme;
+    GtkStyleContext *context = pgtk_widget_get_style_context(window_theme->window);
 
     if (part_id == WP_DIALOG)
         pgtk_render_background(context, cr, 0, 0, width, height);
@@ -88,8 +87,34 @@ void uxgtk_window_draw_background(cairo_t *cr, int part_id, int state_id, int wi
         FIXME("Unsupported window part %d.\n", part_id);
 }
 
-BOOL uxgtk_window_is_part_defined(int part_id, int state_id)
+static BOOL is_part_defined(int part_id, int state_id)
 {
-    TRACE("(%d, %d)\n", part_id, state_id);
     return (part_id == WP_DIALOG);
+}
+
+static void destroy(uxgtk_theme_t *theme)
+{
+    pgtk_widget_destroy(((window_theme_t *)theme)->window);
+
+    free(theme);
+}
+
+uxgtk_theme_t *uxgtk_window_theme_create(void)
+{
+    window_theme_t *theme;
+    GtkStyleContext *context;
+
+    TRACE("()\n");
+
+    theme = malloc(sizeof(window_theme_t));
+    memset(theme, 0, sizeof(window_theme_t));
+
+    theme->base.vtable = &window_vtable;
+
+    theme->window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
+
+    context = pgtk_widget_get_style_context(theme->window);
+    pgtk_style_context_add_class(context, GTK_STYLE_CLASS_BACKGROUND);
+
+    return &theme->base;
 }

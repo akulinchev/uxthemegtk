@@ -25,32 +25,9 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-void uxgtk_listview_init(void)
+uxgtk_theme_t *uxgtk_listview_theme_create(void)
 {
     TRACE("()\n");
-    /* Do nothing */
-}
 
-void uxgtk_listview_uninit(void)
-{
-    TRACE("()\n");
-    /* Do nothing */
-}
-
-void uxgtk_listview_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
-{
-    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
-
-    if (part_id == 0)
-        uxgtk_listbox_draw_background(cr, 0, 0, width, height);
-    else
-        FIXME("Unsupported listview part %d.\n", part_id);
-}
-
-BOOL uxgtk_listview_is_part_defined(int part_id, int state_id)
-{
-    TRACE("(%d, %d)\n", part_id, state_id);
-
-    /* comctl32.dll always sends 0. Other parts are currently not supported. */
-    return !part_id;
+    return uxgtk_listbox_theme_create();
 }

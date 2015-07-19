@@ -20,6 +20,8 @@
 
 #include "uxthemegtk_internal.h"
 
+#include <stdlib.h>
+
 #include <vsstyle.h>
 #include <vssym32.h>
 #include <winerror.h>
@@ -27,8 +29,28 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-static GtkWidget *window = NULL;
-static GtkWidget *entry = NULL;
+typedef struct _edit_theme
+{
+    uxgtk_theme_t base;
+
+    GtkWidget *window;
+    GtkWidget *entry;
+} edit_theme_t;
+
+static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
+                         int prop_id, GdkRGBA *rgba);
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height);
+static BOOL is_part_defined(int part_id, int state_id);
+static void destroy(uxgtk_theme_t *theme);
+
+static const uxgtk_theme_vtable_t edit_vtable = {
+    get_color,
+    draw_background,
+    NULL, /* get_part_size */
+    is_part_defined,
+    destroy
+};
 
 static inline GtkStateFlags get_text_state_flags(int state_id)
 {
@@ -60,10 +82,10 @@ static inline GtkStateFlags get_text_state_flags(int state_id)
     return GTK_STATE_FLAG_NORMAL;
 }
 
-static void draw_edit_text(cairo_t *cr, int state_id, int width, int height)
+static void draw_edit_text(edit_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
     GtkStateFlags state = get_text_state_flags(state_id);
-    GtkStyleContext *context = pgtk_widget_get_style_context(entry);
+    GtkStyleContext *context = pgtk_widget_get_style_context(theme->entry);
 
     pgtk_style_context_save(context);
 
@@ -75,28 +97,11 @@ static void draw_edit_text(cairo_t *cr, int state_id, int width, int height)
     pgtk_style_context_restore(context);
 }
 
-void uxgtk_edit_init(void)
+static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id, int prop_id, GdkRGBA *rgba)
 {
-    TRACE("()\n");
-
-    window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
-    entry = pgtk_entry_new();
-
-    pgtk_container_add((GtkContainer*)window, entry);
-}
-
-void uxgtk_edit_uninit(void)
-{
-    TRACE("()\n");
-    pgtk_widget_destroy(window);
-}
-
-HRESULT uxgtk_edit_get_color(int part_id, int state_id, int prop_id, GdkRGBA *rgba)
-{
+    edit_theme_t *edit_theme = (edit_theme_t *)theme;
     GtkStateFlags state = get_text_state_flags(state_id);
-    GtkStyleContext *context = pgtk_widget_get_style_context(entry);
-
-    TRACE("(%d, %d, %d, %p)\n", part_id, state_id, prop_id, rgba);
+    GtkStyleContext *context = pgtk_widget_get_style_context(edit_theme->entry);
 
     switch (prop_id)
     {
@@ -118,20 +123,46 @@ HRESULT uxgtk_edit_get_color(int part_id, int state_id, int prop_id, GdkRGBA *rg
     return E_FAIL;
 }
 
-void uxgtk_edit_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height)
 {
-    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+    edit_theme_t *edit_theme = (edit_theme_t *)theme;
 
     if (part_id == EP_EDITTEXT)
-        draw_edit_text(cr, state_id, width, height);
+        draw_edit_text(edit_theme, cr, state_id, width, height);
     else
         FIXME("Unsupported edit part %d.\n", part_id);
 }
 
-BOOL uxgtk_edit_is_part_defined(int part_id, int state_id)
+static BOOL is_part_defined(int part_id, int state_id)
 {
-    TRACE("(%d, %d)\n", part_id, state_id);
-
     /* comstl32.dll uses only EP_EDITTEXT */
     return (part_id == EP_EDITTEXT && state_id < ETS_ASSIST);
+}
+
+static void destroy(uxgtk_theme_t *theme)
+{
+    /* Destroy the toplevel widget */
+    pgtk_widget_destroy(((edit_theme_t *)theme)->window);
+
+    free(theme);
+}
+
+uxgtk_theme_t *uxgtk_edit_theme_create(void)
+{
+    edit_theme_t *theme;
+
+    TRACE("()\n");
+
+    theme = malloc(sizeof(edit_theme_t));
+    memset(theme, 0, sizeof(edit_theme_t));
+
+    theme->base.vtable = &edit_vtable;
+
+    theme->window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
+    theme->entry = pgtk_entry_new();
+
+    pgtk_container_add((GtkContainer*)theme->window, theme->entry);
+
+    return &theme->base;
 }

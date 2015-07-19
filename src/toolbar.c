@@ -20,25 +20,77 @@
 
 #include "uxthemegtk_internal.h"
 
+#include <stdlib.h>
+
 #include <vsstyle.h>
 #include <wine/debug.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-static GtkWidget *separator = NULL;
-
-static void draw_button(cairo_t *cr, int state_id, int width, int height)
+typedef struct _toolbar_theme
 {
-    if (state_id == TS_HOT)
-        uxgtk_button_draw_background(cr, BP_PUSHBUTTON, PBS_HOT, width, height);
-    else if (state_id == TS_PRESSED)
-        uxgtk_button_draw_background(cr, BP_PUSHBUTTON, PBS_PRESSED, width, height);
+    uxgtk_theme_t base;
+
+    GtkWidget *button;
+    GtkWidget *separator;
+} toolbar_theme_t;
+
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height);
+static BOOL is_part_defined(int part_id, int state_id);
+static void destroy(uxgtk_theme_t *theme);
+
+static const uxgtk_theme_vtable_t toolbar_vtable = {
+    NULL, /* get_color */
+    draw_background,
+    NULL, /* get_part_size */
+    is_part_defined,
+    destroy
+};
+
+static inline GtkStateFlags get_state_flags(int state_id)
+{
+    switch (state_id)
+    {
+        case TS_NORMAL:
+            return GTK_STATE_FLAG_NORMAL;
+
+        case TS_HOT:
+            return GTK_STATE_FLAG_PRELIGHT;
+
+        case TS_PRESSED:
+            return GTK_STATE_FLAG_ACTIVE;
+
+        case TS_DISABLED:
+            return GTK_STATE_FLAG_INSENSITIVE;
+
+        default:
+            FIXME("Unsupported toolbar state %d.\n", state_id);
+            break;
+    }
+
+    return GTK_STATE_FLAG_NORMAL;
 }
 
-static void draw_separator(cairo_t *cr, int part_id, int width, int height)
+static void draw_button(toolbar_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
+{
+    GtkStateFlags state = get_state_flags(state_id);
+    GtkStyleContext *context = pgtk_widget_get_style_context(theme->button);
+
+    pgtk_style_context_save(context);
+
+    pgtk_style_context_set_state(context, state);
+
+    pgtk_render_background(context, cr, 0, 0, width, height);
+    pgtk_render_frame(context, cr, 0, 0, width, height);
+
+    pgtk_style_context_restore(context);
+}
+
+static void draw_separator(toolbar_theme_t *theme, cairo_t *cr, int part_id, int width, int height)
 {
     int x1, x2, y1, y2;
-    GtkStyleContext *context = pgtk_widget_get_style_context(separator);
+    GtkStyleContext *context = pgtk_widget_get_style_context(theme->separator);
 
     if (part_id == TP_SEPARATOR) /* TP_SEPARATORVERT ? */
     {
@@ -56,31 +108,20 @@ static void draw_separator(cairo_t *cr, int part_id, int width, int height)
     pgtk_render_line(context, cr, x1, y1, x2, y2);
 }
 
-void uxgtk_toolbar_init(void)
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height)
 {
-    TRACE("()\n");
-    separator = (GtkWidget*)pgtk_separator_tool_item_new();
-}
-
-void uxgtk_toolbar_uninit(void)
-{
-    TRACE("()\n");
-    pgtk_widget_destroy(separator);
-}
-
-void uxgtk_toolbar_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
-{
-    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+    toolbar_theme_t *toolbar_theme = (toolbar_theme_t *)theme;
 
     switch (part_id)
     {
         case TP_BUTTON:
-            draw_button(cr, state_id, width, height);
+            draw_button(toolbar_theme, cr, state_id, width, height);
             break;
 
         case TP_SEPARATOR:
         case TP_SEPARATORVERT:
-            draw_separator(cr, part_id, width, height);
+            draw_separator(toolbar_theme, cr, part_id, width, height);
             break;
 
         default:
@@ -89,8 +130,34 @@ void uxgtk_toolbar_draw_background(cairo_t *cr, int part_id, int state_id, int w
     }
 }
 
-BOOL uxgtk_toolbar_is_part_defined(int part_id, int state_id)
+static BOOL is_part_defined(int part_id, int state_id)
 {
-    TRACE("(%d, %d)\n", part_id, state_id);
     return (part_id == TP_BUTTON || part_id == TP_SEPARATOR || part_id == TP_SEPARATORVERT);
+}
+
+static void destroy(uxgtk_theme_t *theme)
+{
+    toolbar_theme_t *toolbar_theme = (toolbar_theme_t *)theme;
+
+    pgtk_widget_destroy(toolbar_theme->button);
+    pgtk_widget_destroy(toolbar_theme->separator);
+
+    free(theme);
+}
+
+uxgtk_theme_t *uxgtk_toolbar_theme_create(void)
+{
+    toolbar_theme_t *theme;
+
+    TRACE("()\n");
+
+    theme = malloc(sizeof(toolbar_theme_t));
+    memset(theme, 0, sizeof(toolbar_theme_t));
+
+    theme->base.vtable = &toolbar_vtable;
+
+    theme->button = pgtk_button_new();
+    theme->separator = (GtkWidget*)pgtk_separator_tool_item_new();
+
+    return &theme->base;
 }

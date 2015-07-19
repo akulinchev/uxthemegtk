@@ -62,7 +62,6 @@ MAKE_FUNCPTR(gtk_check_button_new);
 MAKE_FUNCPTR(gtk_combo_box_new_with_entry);
 MAKE_FUNCPTR(gtk_container_add);
 MAKE_FUNCPTR(gtk_container_forall);
-MAKE_FUNCPTR(gtk_entry_get_type);
 MAKE_FUNCPTR(gtk_entry_new);
 MAKE_FUNCPTR(gtk_fixed_new);
 MAKE_FUNCPTR(gtk_frame_new);
@@ -98,6 +97,7 @@ MAKE_FUNCPTR(gtk_style_context_save);
 MAKE_FUNCPTR(gtk_style_context_set_junction_sides);
 MAKE_FUNCPTR(gtk_style_context_set_state);
 MAKE_FUNCPTR(gtk_toggle_button_get_type);
+MAKE_FUNCPTR(gtk_toolbar_new);
 MAKE_FUNCPTR(gtk_tree_view_append_column);
 MAKE_FUNCPTR(gtk_tree_view_column_get_button);
 MAKE_FUNCPTR(gtk_tree_view_column_new);
@@ -109,129 +109,30 @@ MAKE_FUNCPTR(gtk_widget_style_get);
 MAKE_FUNCPTR(gtk_window_new);
 #undef MAKE_FUNCPTR
 
-typedef void (*init_func_t)(void);
-typedef void (*uninit_func_t)(void);
-typedef HRESULT (*get_color_func_t)(int part_id, int state_id,
-                                    int prop_id, GdkRGBA *rgba);
-typedef void (*draw_background_func_t)(cairo_t *cr,
-                                       int part_id, int state_id,
-                                       int width, int height);
-typedef HRESULT (*get_part_size_func_t)(int part_id, int state_id,
-                                        RECT *rect, SIZE *size);
-typedef BOOL (*is_part_defined_func_t)(int part_id, int state_id);
-
-typedef struct {
+static const struct {
     const WCHAR *classname;
-    init_func_t init;
-    uninit_func_t uninit;
-    get_color_func_t get_color;
-    draw_background_func_t draw_background;
-    get_part_size_func_t get_part_size;
-    is_part_defined_func_t is_part_defined;
-} theme_t;
-
-static /* const */ theme_t themes[] = {
-    { VSCLASS_BUTTON,
-      uxgtk_button_init,
-      uxgtk_button_uninit,
-      uxgtk_button_get_color,
-      uxgtk_button_draw_background,
-      uxgtk_button_get_part_size,
-      uxgtk_button_is_part_defined },
-    { VSCLASS_COMBOBOX,
-      uxgtk_combobox_init,
-      uxgtk_combobox_uninit,
-      NULL, /* get_color */
-      uxgtk_combobox_draw_background,
-      NULL, /* get_part_size */
-      uxgtk_combobox_is_part_defined },
-    { VSCLASS_EDIT,
-      uxgtk_edit_init,
-      uxgtk_edit_uninit,
-      uxgtk_edit_get_color,
-      uxgtk_edit_draw_background,
-      NULL, /* get_part_size */
-      uxgtk_edit_is_part_defined },
-    { VSCLASS_HEADER,
-      uxgtk_header_init,
-      uxgtk_header_uninit,
-      NULL, /* get_color */
-      uxgtk_header_draw_background,
-      NULL, /* get_part_size */
-      uxgtk_header_is_part_defined },
-    { VSCLASS_LISTBOX,
-      uxgtk_listbox_init,
-      uxgtk_listbox_uninit,
-      NULL, /* get_color */
-      uxgtk_listbox_draw_background,
-      NULL, /* get_part_size */
-      uxgtk_listbox_is_part_defined },
-    { VSCLASS_LISTVIEW,
-      uxgtk_listview_init,
-      uxgtk_listview_uninit,
-      NULL, /* get_color */
-      uxgtk_listview_draw_background,
-      NULL, /* get_part_size */
-      uxgtk_listview_is_part_defined },
-    { VSCLASS_MENU,
-      uxgtk_menu_init,
-      uxgtk_menu_uninit,
-      uxgtk_menu_get_color,
-      NULL, /* draw_background */
-      NULL, /* get_part_size */
-      NULL }, /* is_part_defined */
-    { VSCLASS_REBAR,
-      uxgtk_rebar_init,
-      uxgtk_rebar_uninit,
-      NULL, /* get_color */
-      uxgtk_rebar_draw_background,
-      NULL, /* get_part_size */
-      uxgtk_rebar_is_part_defined },
-    { VSCLASS_STATUS,
-      uxgtk_status_init,
-      uxgtk_status_uninit,
-      NULL, /* get_color */
-      uxgtk_status_draw_background,
-      uxgtk_status_get_part_size,
-      uxgtk_status_is_part_defined },
-    { VSCLASS_TAB,
-      uxgtk_tab_init,
-      uxgtk_tab_uninit,
-      NULL, /* get_color */
-      uxgtk_tab_draw_background,
-      NULL, /* get_part_size */
-      uxgtk_tab_is_part_defined },
-    { VSCLASS_TOOLBAR,
-      uxgtk_toolbar_init,
-      uxgtk_toolbar_uninit,
-      NULL, /* get_color */
-      uxgtk_toolbar_draw_background,
-      NULL, /* get_part_size */
-      uxgtk_toolbar_is_part_defined },
-    { VSCLASS_TRACKBAR,
-      uxgtk_trackbar_init,
-      uxgtk_trackbar_uninit,
-      NULL, /* get_color */
-      uxgtk_trackbar_draw_background,
-      NULL, /* get_part_size */
-      uxgtk_trackbar_is_part_defined },
-    { VSCLASS_WINDOW,
-      uxgtk_window_init,
-      uxgtk_window_uninit,
-      uxgtk_window_get_color,
-      uxgtk_window_draw_background,
-      NULL, /* get_part_size */
-      uxgtk_window_is_part_defined }
+    uxgtk_theme_t *(*create)(void);
+} classes[] = {
+    { VSCLASS_BUTTON,   uxgtk_button_theme_create },
+    { VSCLASS_COMBOBOX, uxgtk_combobox_theme_create },
+    { VSCLASS_EDIT,     uxgtk_edit_theme_create },
+    { VSCLASS_HEADER,   uxgtk_header_theme_create },
+    { VSCLASS_LISTBOX,  uxgtk_listbox_theme_create },
+    { VSCLASS_LISTVIEW, uxgtk_listview_theme_create },
+    { VSCLASS_MENU,     uxgtk_menu_theme_create },
+    { VSCLASS_REBAR,    uxgtk_rebar_theme_create },
+    { VSCLASS_STATUS,   uxgtk_status_theme_create },
+    { VSCLASS_TAB,      uxgtk_tab_theme_create },
+    { VSCLASS_TOOLBAR,  uxgtk_toolbar_theme_create },
+    { VSCLASS_TRACKBAR, uxgtk_trackbar_theme_create },
+    { VSCLASS_WINDOW,   uxgtk_window_theme_create }
 };
 
-#define THEMES_SIZE (sizeof(themes) / sizeof(theme_t))
-
-#define GET_THEME(htheme) ((theme_t *)(htheme))
+#define CLASSES_SIZE (sizeof(classes) / sizeof(classes[0]))
 
 #define NUM_SYS_COLORS (COLOR_MENUBAR + 1)
 #define MENU_HEIGHT 20
 #define CLASSLIST_MAXLEN 128
-#define PIXEL_SIZE 4 /* red + green + blue + alpha = 4 bytes */
 
 static WCHAR fake_msstyles_file[MAX_PATH];
 
@@ -307,7 +208,6 @@ static BOOL load_gtk3_libs(void)
     LOAD_FUNCPTR(libgtk3, gtk_combo_box_new_with_entry);
     LOAD_FUNCPTR(libgtk3, gtk_container_add);
     LOAD_FUNCPTR(libgtk3, gtk_container_forall);
-    LOAD_FUNCPTR(libgtk3, gtk_entry_get_type)
     LOAD_FUNCPTR(libgtk3, gtk_entry_new);
     LOAD_FUNCPTR(libgtk3, gtk_fixed_new);
     LOAD_FUNCPTR(libgtk3, gtk_frame_new);
@@ -343,11 +243,13 @@ static BOOL load_gtk3_libs(void)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_set_junction_sides)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_set_state)
     LOAD_FUNCPTR(libgtk3, gtk_toggle_button_get_type);
+    LOAD_FUNCPTR(libgtk3, gtk_toolbar_new);
     LOAD_FUNCPTR(libgtk3, gtk_tree_view_append_column);
     LOAD_FUNCPTR(libgtk3, gtk_tree_view_column_get_button);
     LOAD_FUNCPTR(libgtk3, gtk_tree_view_column_new);
     LOAD_FUNCPTR(libgtk3, gtk_tree_view_get_column);
     LOAD_FUNCPTR(libgtk3, gtk_tree_view_new);
+    LOAD_FUNCPTR(libgtk3, gtk_widget_destroy);
     LOAD_FUNCPTR(libgtk3, gtk_widget_get_style_context);
     LOAD_FUNCPTR(libgtk3, gtk_widget_style_get);
     LOAD_FUNCPTR(libgtk3, gtk_window_new);
@@ -390,16 +292,12 @@ static BOOL init(void)
     static const WCHAR themesSubdir[] = { '\\','T','h','e','m','e','s',0 };
     static WCHAR style_folder[] = {'\\', 'g','t','k', 0};
     static WCHAR style_file[] = {'\\','g','t','k','.','m','s','s','t','y','l','e','s', 0};
-    int i;
     HANDLE file;
 
     if (!load_gtk3_libs())
         return FALSE;
 
     pgtk_init(0, NULL); /* Otherwise every call to GTK will fail */
-
-    for (i = 0; i < THEMES_SIZE; i++)
-        themes[i].init();
 
     apply_colors();
     fix_sys_params();
@@ -426,11 +324,6 @@ static BOOL init(void)
 
 static void uninit(void)
 {
-    int i;
-
-    for (i = 0; i < THEMES_SIZE; i++)
-        themes[i].uninit();
-
     free_gtk3_libs();
 }
 
@@ -517,16 +410,34 @@ static BOOL match_class(LPCWSTR classlist, LPCWSTR classname)
 
 HRESULT WINAPI CloseThemeData(HTHEME htheme)
 {
+    uxgtk_theme_t *theme = (uxgtk_theme_t *)htheme;
+
     TRACE("(%p)\n", htheme);
-    return S_OK; /* Do nothing */
+
+    if (theme == NULL || theme->vtable == NULL)
+        return E_HANDLE;
+
+    if (theme->vtable->destroy == NULL)
+        return E_NOTIMPL;
+
+    /* Call virtual destructor */
+    theme->vtable->destroy(theme);
+
+    return S_OK;
 }
 
 HRESULT WINAPI EnableThemeDialogTexture(HWND hwnd, DWORD flags)
 {
+    HTHEME htheme;
+
     TRACE("(%p, %u)\n", hwnd, flags);
 
     if (flags & ETDT_USETABTEXTURE)
-        OpenThemeData(hwnd, VSCLASS_TAB); /* No CloseThemeData is needed */
+    {
+        htheme = GetWindowTheme(hwnd);
+        OpenThemeData(hwnd, VSCLASS_TAB);
+        CloseThemeData(htheme);
+    }
 
     return S_OK; /* Always enabled */
 }
@@ -594,15 +505,19 @@ HTHEME WINAPI OpenThemeData(HWND hwnd, LPCWSTR classlist)
         return NULL;
     }
 
-    for (i = 0; i < THEMES_SIZE; i++)
+    for (i = 0; i < CLASSES_SIZE; i++)
     {
-        if (match_class(classlist, themes[i].classname))
+        if (match_class(classlist, classes[i].classname))
         {
-            TRACE("Using %s for %s.\n", wine_dbgstr_w(themes[i].classname),
+            uxgtk_theme_t *theme;
+
+            TRACE("Using %s for %s.\n", wine_dbgstr_w(classes[i].classname),
                   wine_dbgstr_w(classlist));
 
-            SetPropW(hwnd, THEME_PROPERTY, &themes[i]);
-            return &themes[i];
+            theme = classes[i].create();
+
+            SetPropW(hwnd, THEME_PROPERTY, theme);
+            return theme;
         }
     }
 
@@ -638,17 +553,20 @@ HRESULT WINAPI GetThemeColor(HTHEME htheme, int part_id, int state_id,
 {
     HRESULT hr;
     GdkRGBA rgba;
-    theme_t *theme = GET_THEME(htheme);
+    uxgtk_theme_t *theme = (uxgtk_theme_t *)htheme;
 
     TRACE("(%p, %d, %d, %d, %p)\n", htheme, part_id, state_id, prop_id, color);
 
-    if (theme == NULL || theme->get_color == NULL)
+    if (theme == NULL || theme->vtable == NULL)
         return E_HANDLE;
+
+    if (theme->vtable->get_color == NULL)
+        return E_NOTIMPL;
 
     if (color == NULL)
         return E_INVALIDARG;
 
-    hr = theme->get_color(part_id, state_id, prop_id, &rgba);
+    hr = theme->vtable->get_color(theme, part_id, state_id, prop_id, &rgba);
 
     if (SUCCEEDED(hr) && rgba.alpha > 0)
     {
@@ -773,9 +691,23 @@ BOOL WINAPI GetThemeSysBool(HTHEME htheme, int bool_id)
 
 COLORREF WINAPI GetThemeSysColor(HTHEME htheme, int color_id)
 {
-    GdkRGBA rgba;
+    HRESULT hr = S_OK;
+    COLORREF color = 0;
+
+    static HTHEME window_htheme = NULL;
+    static HTHEME button_htheme = NULL;
+    static HTHEME edit_htheme = NULL;
+    static HTHEME menu_htheme = NULL;
 
     TRACE("(%p, %d)\n", htheme, color_id);
+
+    if (window_htheme == NULL)
+    {
+        window_htheme = OpenThemeData(NULL, VSCLASS_WINDOW);
+        button_htheme = OpenThemeData(NULL, VSCLASS_BUTTON);
+        edit_htheme = OpenThemeData(NULL, VSCLASS_EDIT);
+        menu_htheme = OpenThemeData(NULL, VSCLASS_MENU);
+    }
 
     switch (color_id)
     {
@@ -794,53 +726,50 @@ COLORREF WINAPI GetThemeSysColor(HTHEME htheme, int color_id)
         case COLOR_GRADIENTACTIVECAPTION:
         case COLOR_ALTERNATEBTNFACE:
         case COLOR_INFOBK: /* FIXME */
-            uxgtk_window_get_color(WP_DIALOG, 0, TMT_FILLCOLOR, &rgba);
+            hr = GetThemeColor(window_htheme, WP_DIALOG, 0, TMT_FILLCOLOR, &color);
             break;
 
         case COLOR_3DLIGHT:
         case COLOR_BTNSHADOW:
-            uxgtk_button_get_color(BP_PUSHBUTTON, PBS_NORMAL,
-                                   TMT_BORDERCOLOR, &rgba);
+            hr = GetThemeColor(button_htheme, BP_PUSHBUTTON, PBS_NORMAL, TMT_BORDERCOLOR, &color);
             break;
 
         case COLOR_BTNTEXT:
         case COLOR_INFOTEXT:
         case COLOR_WINDOWTEXT:
         case COLOR_CAPTIONTEXT:
-            uxgtk_window_get_color(WP_DIALOG, 0, TMT_TEXTCOLOR, &rgba);
+            hr = GetThemeColor(window_htheme, WP_DIALOG, 0, TMT_TEXTCOLOR, &color);
             break;
 
         case COLOR_HIGHLIGHTTEXT:
-            uxgtk_edit_get_color(EP_EDITTEXT, ETS_SELECTED, TMT_TEXTCOLOR, &rgba);
+            hr = GetThemeColor(edit_htheme, EP_EDITTEXT, ETS_SELECTED, TMT_TEXTCOLOR, &color);
             break;
 
         case COLOR_GRAYTEXT:
         case COLOR_INACTIVECAPTIONTEXT:
-            uxgtk_button_get_color(BP_PUSHBUTTON, PBS_DISABLED,
-                                   TMT_TEXTCOLOR, &rgba);
+            hr = GetThemeColor(button_htheme, BP_PUSHBUTTON, PBS_DISABLED, TMT_TEXTCOLOR, &color);
             break;
 
         case COLOR_HIGHLIGHT:
         case COLOR_MENUHILIGHT:
         case COLOR_HOTLIGHT:
-            uxgtk_edit_get_color(EP_EDITTEXT, ETS_SELECTED, TMT_FILLCOLOR, &rgba);
+            hr = GetThemeColor(edit_htheme, EP_EDITTEXT, ETS_SELECTED, TMT_FILLCOLOR, &color);
             break;
 
         case COLOR_MENUBAR:
-            uxgtk_menu_get_color(MENU_BARBACKGROUND, MB_ACTIVE,
-                                 TMT_FILLCOLOR, &rgba);
+            hr = GetThemeColor(menu_htheme, MENU_BARBACKGROUND, MB_ACTIVE, TMT_FILLCOLOR, &color);
             break;
 
         case COLOR_MENU:
-            uxgtk_menu_get_color(MENU_POPUPBACKGROUND, 0, TMT_FILLCOLOR, &rgba);
+            hr = GetThemeColor(menu_htheme, MENU_POPUPBACKGROUND, 0, TMT_FILLCOLOR, &color);
             break;
 
         case COLOR_MENUTEXT:
-            uxgtk_menu_get_color(MENU_POPUPITEM, MPI_NORMAL, TMT_TEXTCOLOR, &rgba);
+            hr = GetThemeColor(menu_htheme, MENU_POPUPITEM, MPI_NORMAL, TMT_TEXTCOLOR, &color);
             break;
 
         case COLOR_WINDOW:
-            uxgtk_edit_get_color(EP_EDITTEXT, ETS_NORMAL, TMT_FILLCOLOR, &rgba);
+            hr = GetThemeColor(edit_htheme, EP_EDITTEXT, ETS_NORMAL, TMT_FILLCOLOR, &color);
             break;
 
         default:
@@ -848,10 +777,10 @@ COLORREF WINAPI GetThemeSysColor(HTHEME htheme, int color_id)
             return GetSysColor(color_id);
     }
 
-    if (rgba.alpha <= 0)
+    if (FAILED(hr))
         return GetSysColor(color_id);
 
-    return GDKRGBA_TO_COLORREF(rgba);
+    return color;
 }
 
 HBRUSH WINAPI GetThemeSysColorBrush(HTHEME htheme, int color_id)
@@ -914,12 +843,15 @@ HRESULT WINAPI DrawThemeBackgroundEx(HTHEME htheme, HDC hdc, int part_id, int st
     cairo_t *cr;
     cairo_surface_t *surface;
     int x, y, width, height;
-    theme_t *theme = GET_THEME(htheme);
+    uxgtk_theme_t *theme = (uxgtk_theme_t *)htheme;
 
     TRACE("(%p, %p, %d, %d, %p, %p)\n", htheme, hdc, part_id, state_id, rect, options);
 
-    if (theme == NULL || theme->draw_background == NULL)
+    if (theme == NULL || theme->vtable == NULL)
         return E_HANDLE;
+
+    if (theme->vtable->draw_background == NULL)
+        return E_NOTIMPL;
 
     width = rect->right - rect->left;
     height = rect->bottom - rect->top;
@@ -927,7 +859,7 @@ HRESULT WINAPI DrawThemeBackgroundEx(HTHEME htheme, HDC hdc, int part_id, int st
     surface = pcairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
     cr = pcairo_create(surface);
 
-    theme->draw_background(cr, part_id, state_id, width, height);
+    theme->vtable->draw_background(theme, cr, part_id, state_id, width, height);
 
     x = rect->left;
     y = rect->top;
@@ -993,12 +925,7 @@ HRESULT WINAPI DrawThemeText(HTHEME htheme, HDC hdc, int part_id, int state_id,
 
     if (FAILED(hr))
     {
-        theme_t *theme = GET_THEME(htheme);
-
-        FIXME("No color for (%s, %d, %d).\n",
-              wine_dbgstr_w(theme == NULL ? NULL : theme->classname),
-              part_id, state_id);
-
+        FIXME("No color.\n");
         /*return hr;*/
     }
 
@@ -1077,17 +1004,20 @@ HRESULT WINAPI GetThemeBackgroundRegion(HTHEME htheme, HDC hdc, int part_id, int
 HRESULT WINAPI GetThemePartSize(HTHEME htheme, HDC hdc, int part_id, int state_id,
                                 RECT *rect, THEMESIZE type, SIZE *size)
 {
-    theme_t *theme = GET_THEME(htheme);
+    uxgtk_theme_t *theme = (uxgtk_theme_t *)htheme;
 
     TRACE("(%p, %p, %d, %d, %p, %d, %p)\n", htheme, hdc, part_id, state_id, rect, type, size);
 
-    if (theme == NULL || theme->get_part_size == NULL)
+    if (theme == NULL || theme->vtable == NULL)
         return E_HANDLE;
+
+    if (theme->vtable->get_part_size == NULL)
+        return E_NOTIMPL;
 
     if (rect == NULL || size == NULL)
         return E_INVALIDARG;
 
-    return theme->get_part_size(part_id, state_id, rect, size);
+    return theme->vtable->get_part_size(theme, part_id, state_id, rect, size);
 }
 
 HRESULT WINAPI GetThemeTextExtent(HTHEME htheme, HDC hdc, int part_id, int state_id,
@@ -1130,17 +1060,23 @@ BOOL WINAPI IsThemeBackgroundPartiallyTransparent(HTHEME htheme, int part_id, in
 
 BOOL WINAPI IsThemePartDefined(HTHEME htheme, int part_id, int state_id)
 {
-    theme_t *theme = GET_THEME(htheme);
+    uxgtk_theme_t *theme = (uxgtk_theme_t *)htheme;
 
     TRACE("(%p, %d, %d)\n", htheme, part_id, state_id);
 
-    if (theme == NULL || theme->is_part_defined == NULL)
+    if (theme == NULL || theme->vtable == NULL)
     {
         SetLastError(ERROR_INVALID_HANDLE);
         return FALSE;
     }
 
-    return theme->is_part_defined(part_id, state_id);
+    if (theme->vtable->is_part_defined == NULL)
+    {
+        SetLastError(ERROR_NOT_SUPPORTED);
+        return FALSE;
+    }
+
+    return theme->vtable->is_part_defined(part_id, state_id);
 }
 
 static BOOL is_fake_theme(const WCHAR *path)

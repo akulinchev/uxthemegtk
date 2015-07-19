@@ -20,36 +20,76 @@
 
 #include "uxthemegtk_internal.h"
 
+#include <stdlib.h>
+
 #include <vsstyle.h>
 #include <wine/debug.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-void uxgtk_rebar_init(void)
+typedef struct _rebar_theme
 {
-    TRACE("()\n");
-    /* Do nothing */
-}
+    uxgtk_theme_t base;
 
-void uxgtk_rebar_uninit(void)
-{
-    TRACE("()\n");
-    /* Do nothing */
-}
+    GtkWidget *window;
+    GtkWidget *toolbar;
+} rebar_theme_t;
 
-void uxgtk_rebar_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height);
+static BOOL is_part_defined(int part_id, int state_id);
+static void destroy(uxgtk_theme_t *theme);
+
+static const uxgtk_theme_vtable_t rebar_vtable = {
+    NULL, /* get_color */
+    draw_background,
+    NULL, /* get_part_size */
+    is_part_defined,
+    destroy
+};
+
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height)
 {
-    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+    rebar_theme_t *rebar_theme = (rebar_theme_t *)theme;
 
     if (part_id)
         FIXME("Unsupported rebar part %d.\n", part_id);
     else
-        uxgtk_window_draw_background(cr, WP_DIALOG, 0, width, height);
-        /* I have tryed to draw a "primary" toolbar, but it looks ugly */
+    {
+        GtkStyleContext *context = pgtk_widget_get_style_context(rebar_theme->toolbar);
+        pgtk_render_background(context, cr, 0, 0, width, height);
+    }
 }
 
-BOOL uxgtk_rebar_is_part_defined(int part_id, int state_id)
+static BOOL is_part_defined(int part_id, int state_id)
 {
-    TRACE("(%d, %d)\n", part_id, state_id);
     return !part_id;
+}
+
+static void destroy(uxgtk_theme_t *theme)
+{
+    /* Destroy the toplevel widget */
+    pgtk_widget_destroy(((rebar_theme_t *)theme)->window);
+
+    free(theme);
+}
+
+uxgtk_theme_t *uxgtk_rebar_theme_create(void)
+{
+    rebar_theme_t *theme;
+
+    TRACE("()\n");
+
+    theme = malloc(sizeof(rebar_theme_t));
+    memset(theme, 0, sizeof(rebar_theme_t));
+
+    theme->base.vtable = &rebar_vtable;
+
+    theme->window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
+    theme->toolbar = pgtk_toolbar_new();
+
+    pgtk_container_add((GtkContainer*)theme->window, theme->toolbar);
+
+    return &theme->base;
 }

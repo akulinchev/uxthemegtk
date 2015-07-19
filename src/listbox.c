@@ -20,16 +20,36 @@
 
 #include "uxthemegtk_internal.h"
 
+#include <stdlib.h>
+
 #include <vsstyle.h>
 #include <wine/debug.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-static GtkWidget *scrolled_window = NULL;
-
-static void draw_border(cairo_t *cr, int width, int height)
+typedef struct _listbox_theme
 {
-    GtkStyleContext *context = pgtk_widget_get_style_context(scrolled_window);
+    uxgtk_theme_t base;
+
+    GtkWidget *scrolled_window;
+} listbox_theme_t;
+
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height);
+static BOOL is_part_defined(int part_id, int state_id);
+static void destroy(uxgtk_theme_t *theme);
+
+static const uxgtk_theme_vtable_t listbox_vtable = {
+    NULL, /* get_color */
+    draw_background,
+    NULL, /* get_part_size */
+    is_part_defined,
+    destroy
+};
+
+static void draw_border(listbox_theme_t *theme, cairo_t *cr, int width, int height)
+{
+    GtkStyleContext *context = pgtk_widget_get_style_context(theme->scrolled_window);
 
     pgtk_style_context_save(context);
 
@@ -42,21 +62,10 @@ static void draw_border(cairo_t *cr, int width, int height)
     pgtk_style_context_restore(context);
 }
 
-void uxgtk_listbox_init(void)
+static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                            int width, int height)
 {
-    TRACE("()\n");
-    scrolled_window = pgtk_scrolled_window_new(NULL, NULL);
-}
-
-void uxgtk_listbox_uninit(void)
-{
-    TRACE("()\n");
-    pgtk_widget_destroy(scrolled_window);
-}
-
-void uxgtk_listbox_draw_background(cairo_t *cr, int part_id, int state_id, int width, int height)
-{
-    TRACE("(%p, %d, %d, %d, %d)\n", cr, part_id, state_id, width, height);
+    listbox_theme_t *listbox_theme = (listbox_theme_t *)theme;
 
     switch (part_id)
     {
@@ -65,7 +74,7 @@ void uxgtk_listbox_draw_background(cairo_t *cr, int part_id, int state_id, int w
         case LBCP_BORDER_HVSCROLL:
         case LBCP_BORDER_NOSCROLL:
         case LBCP_BORDER_VSCROLL:
-            draw_border(cr, width, height);
+            draw_border(listbox_theme, cr, width, height);
             break;
 
         default:
@@ -74,10 +83,31 @@ void uxgtk_listbox_draw_background(cairo_t *cr, int part_id, int state_id, int w
     }
 }
 
-BOOL uxgtk_listbox_is_part_defined(int part_id, int state_id)
+static BOOL is_part_defined(int part_id, int state_id)
 {
-    TRACE("(%d, %d)\n", part_id, state_id);
-
     /* >= 0 because comctl32.dll always sends 0. LBCP_ITEM is not used. */
     return (part_id >= 0 && part_id < LBCP_ITEM);
+}
+
+static void destroy(uxgtk_theme_t *theme)
+{
+    pgtk_widget_destroy(((listbox_theme_t *)theme)->scrolled_window);
+
+    free(theme);
+}
+
+uxgtk_theme_t *uxgtk_listbox_theme_create(void)
+{
+    listbox_theme_t *theme;
+
+    TRACE("()\n");
+
+    theme = malloc(sizeof(listbox_theme_t));
+    memset(theme, 0, sizeof(listbox_theme_t));
+
+    theme->base.vtable = &listbox_vtable;
+
+    theme->scrolled_window = pgtk_scrolled_window_new(NULL, NULL);
+
+    return &theme->base;
 }
