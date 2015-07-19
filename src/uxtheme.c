@@ -460,20 +460,29 @@ static BOOL is_fake_theme(const WCHAR *path)
     return ret;
 }
 
+void uxgtk_theme_init(uxgtk_theme_t *theme, const uxgtk_theme_vtable_t *vtable)
+{
+    theme->vtable = vtable;
+
+    theme->window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
+    theme->layout = pgtk_fixed_new();
+
+    pgtk_container_add((GtkContainer*)theme->window, theme->layout);
+}
+
 HRESULT WINAPI CloseThemeData(HTHEME htheme)
 {
     uxgtk_theme_t *theme = (uxgtk_theme_t *)htheme;
 
     TRACE("(%p)\n", htheme);
 
-    if (theme == NULL || theme->vtable == NULL)
+    if (theme == NULL)
         return E_HANDLE;
 
-    if (theme->vtable->destroy == NULL)
-        return E_NOTIMPL;
+    /* Destroy the toplevel widget */
+    pgtk_widget_destroy(theme->window);
 
-    /* Call virtual destructor */
-    theme->vtable->destroy(theme);
+    free(theme);
 
     return S_OK;
 }

@@ -32,21 +32,18 @@ typedef struct _rebar_theme
 {
     uxgtk_theme_t base;
 
-    GtkWidget *window;
     GtkWidget *toolbar;
 } rebar_theme_t;
 
 static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
                             int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
-static void destroy(uxgtk_theme_t *theme);
 
 static const uxgtk_theme_vtable_t rebar_vtable = {
     NULL, /* get_color */
     draw_background,
     NULL, /* get_part_size */
-    is_part_defined,
-    destroy
+    is_part_defined
 };
 
 static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
@@ -73,14 +70,6 @@ static BOOL is_part_defined(int part_id, int state_id)
     return (part_id == 0 || part_id == RP_BACKGROUND);
 }
 
-static void destroy(uxgtk_theme_t *theme)
-{
-    /* Destroy the toplevel widget */
-    pgtk_widget_destroy(((rebar_theme_t *)theme)->window);
-
-    free(theme);
-}
-
 uxgtk_theme_t *uxgtk_rebar_theme_create(void)
 {
     rebar_theme_t *theme;
@@ -90,12 +79,11 @@ uxgtk_theme_t *uxgtk_rebar_theme_create(void)
     theme = malloc(sizeof(rebar_theme_t));
     memset(theme, 0, sizeof(rebar_theme_t));
 
-    theme->base.vtable = &rebar_vtable;
+    uxgtk_theme_init(&theme->base, &rebar_vtable);
 
-    theme->window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
     theme->toolbar = pgtk_toolbar_new();
 
-    pgtk_container_add((GtkContainer*)theme->window, theme->toolbar);
+    pgtk_container_add((GtkContainer *)theme->base.layout, theme->toolbar);
 
     return &theme->base;
 }

@@ -39,14 +39,12 @@ typedef struct _toolbar_theme
 static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
                             int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
-static void destroy(uxgtk_theme_t *theme);
 
 static const uxgtk_theme_vtable_t toolbar_vtable = {
     NULL, /* get_color */
     draw_background,
     NULL, /* get_part_size */
-    is_part_defined,
-    destroy
+    is_part_defined
 };
 
 static GtkStateFlags get_state_flags(int state_id)
@@ -131,16 +129,6 @@ static BOOL is_part_defined(int part_id, int state_id)
     return (part_id == TP_BUTTON || part_id == TP_SEPARATOR || part_id == TP_SEPARATORVERT);
 }
 
-static void destroy(uxgtk_theme_t *theme)
-{
-    toolbar_theme_t *toolbar_theme = (toolbar_theme_t *)theme;
-
-    pgtk_widget_destroy(toolbar_theme->button);
-    pgtk_widget_destroy(toolbar_theme->separator);
-
-    free(theme);
-}
-
 uxgtk_theme_t *uxgtk_toolbar_theme_create(void)
 {
     toolbar_theme_t *theme;
@@ -150,10 +138,13 @@ uxgtk_theme_t *uxgtk_toolbar_theme_create(void)
     theme = malloc(sizeof(toolbar_theme_t));
     memset(theme, 0, sizeof(toolbar_theme_t));
 
-    theme->base.vtable = &toolbar_vtable;
+    uxgtk_theme_init(&theme->base, &toolbar_vtable);
 
     theme->button = pgtk_button_new();
-    theme->separator = (GtkWidget*)pgtk_separator_tool_item_new();
+    theme->separator = (GtkWidget *)pgtk_separator_tool_item_new();
+
+    pgtk_container_add((GtkContainer *)theme->base.layout, theme->button);
+    pgtk_container_add((GtkContainer *)theme->base.layout, theme->separator);
 
     return &theme->base;
 }

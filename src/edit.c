@@ -34,7 +34,6 @@ typedef struct _edit_theme
 {
     uxgtk_theme_t base;
 
-    GtkWidget *window;
     GtkWidget *entry;
 } edit_theme_t;
 
@@ -43,14 +42,12 @@ static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
 static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
                             int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
-static void destroy(uxgtk_theme_t *theme);
 
 static const uxgtk_theme_vtable_t edit_vtable = {
     get_color,
     draw_background,
     NULL, /* get_part_size */
-    is_part_defined,
-    destroy
+    is_part_defined
 };
 
 static GtkStateFlags get_text_state_flags(int state_id)
@@ -179,14 +176,6 @@ static BOOL is_part_defined(int part_id, int state_id)
     return (part_id == EP_EDITTEXT && state_id < ETS_ASSIST);
 }
 
-static void destroy(uxgtk_theme_t *theme)
-{
-    /* Destroy the toplevel widget */
-    pgtk_widget_destroy(((edit_theme_t *)theme)->window);
-
-    free(theme);
-}
-
 uxgtk_theme_t *uxgtk_edit_theme_create(void)
 {
     edit_theme_t *theme;
@@ -196,12 +185,11 @@ uxgtk_theme_t *uxgtk_edit_theme_create(void)
     theme = malloc(sizeof(edit_theme_t));
     memset(theme, 0, sizeof(edit_theme_t));
 
-    theme->base.vtable = &edit_vtable;
+    uxgtk_theme_init(&theme->base, &edit_vtable);
 
-    theme->window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
     theme->entry = pgtk_entry_new();
 
-    pgtk_container_add((GtkContainer*)theme->window, theme->entry);
+    pgtk_container_add((GtkContainer *)theme->base.layout, theme->entry);
 
     return &theme->base;
 }

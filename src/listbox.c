@@ -38,14 +38,12 @@ typedef struct _listbox_theme
 static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
                             int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
-static void destroy(uxgtk_theme_t *theme);
 
 static const uxgtk_theme_vtable_t listbox_vtable = {
     NULL, /* get_color */
     draw_background,
     NULL, /* get_part_size */
-    is_part_defined,
-    destroy
+    is_part_defined
 };
 
 static void draw_border(listbox_theme_t *theme, cairo_t *cr, int width, int height)
@@ -87,13 +85,6 @@ static BOOL is_part_defined(int part_id, int state_id)
     return (part_id >= 0 && part_id < LBCP_ITEM);
 }
 
-static void destroy(uxgtk_theme_t *theme)
-{
-    pgtk_widget_destroy(((listbox_theme_t *)theme)->scrolled_window);
-
-    free(theme);
-}
-
 uxgtk_theme_t *uxgtk_listbox_theme_create(void)
 {
     listbox_theme_t *theme;
@@ -103,9 +94,11 @@ uxgtk_theme_t *uxgtk_listbox_theme_create(void)
     theme = malloc(sizeof(listbox_theme_t));
     memset(theme, 0, sizeof(listbox_theme_t));
 
-    theme->base.vtable = &listbox_vtable;
+    uxgtk_theme_init(&theme->base, &listbox_vtable);
 
     theme->scrolled_window = pgtk_scrolled_window_new(NULL, NULL);
+
+    pgtk_container_add((GtkContainer *)theme->base.layout, theme->scrolled_window);
 
     return &theme->base;
 }

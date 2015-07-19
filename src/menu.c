@@ -34,7 +34,6 @@ typedef struct _menu_theme
 {
     uxgtk_theme_t base;
 
-    GtkWidget *window;
     GtkWidget *menubar;
     GtkWidget *menuitem;
     GtkWidget *menu;
@@ -42,14 +41,12 @@ typedef struct _menu_theme
 
 static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
                          int prop_id, GdkRGBA *rgba);
-static void destroy(uxgtk_theme_t *theme);
 
 static const uxgtk_theme_vtable_t menu_vtable = {
     get_color,
     NULL, /* draw_background */
     NULL, /* get_part_size */
-    NULL, /* is_part_defined */
-    destroy
+    NULL /* is_part_defined */
 };
 
 static GtkStateFlags get_popup_item_state_flags(int state_id)
@@ -155,14 +152,6 @@ static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
     return E_NOTIMPL;
 }
 
-static void destroy(uxgtk_theme_t *theme)
-{
-    /* Destroy the toplevel widget */
-    pgtk_widget_destroy(((menu_theme_t *)theme)->window);
-
-    free(theme);
-}
-
 uxgtk_theme_t *uxgtk_menu_theme_create(void)
 {
     menu_theme_t *theme;
@@ -172,16 +161,15 @@ uxgtk_theme_t *uxgtk_menu_theme_create(void)
     theme = malloc(sizeof(menu_theme_t));
     memset(theme, 0, sizeof(menu_theme_t));
 
-    theme->base.vtable = &menu_vtable;
+    uxgtk_theme_init(&theme->base, &menu_vtable);
 
-    theme->window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
     theme->menubar = pgtk_menu_bar_new();
     theme->menuitem = pgtk_menu_item_new();
     theme->menu = pgtk_menu_new();
 
-    pgtk_container_add((GtkContainer*)theme->window, theme->menubar);
-    pgtk_menu_shell_append((GtkMenuShell*)theme->menubar, theme->menuitem);
-    pgtk_menu_item_set_submenu((GtkMenuItem*)theme->menuitem, theme->menu);
+    pgtk_container_add((GtkContainer *)theme->base.layout, theme->menubar);
+    pgtk_menu_shell_append((GtkMenuShell *)theme->menubar, theme->menuitem);
+    pgtk_menu_item_set_submenu((GtkMenuItem *)theme->menuitem, theme->menu);
 
     return &theme->base;
 }

@@ -35,8 +35,6 @@ typedef struct _status_theme
 
     int grip_width;
     int grip_height;
-
-    GtkWidget *window;
 } status_theme_t;
 
 static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
@@ -44,17 +42,15 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
 static HRESULT get_part_size(uxgtk_theme_t *theme, int part_id, int state_id,
                              RECT *rect, SIZE *size);
 static BOOL is_part_defined(int part_id, int state_id);
-static void destroy(uxgtk_theme_t *theme);
 
 static const uxgtk_theme_vtable_t status_vtable = {
     NULL, /* get_color */
     draw_background,
     get_part_size,
-    is_part_defined,
-    destroy
+    is_part_defined
 };
 
-static void draw_pane(status_theme_t *theme, cairo_t *cr, int width, int height)
+static void draw_pane(uxgtk_theme_t *theme, cairo_t *cr, int width, int height)
 {
     GtkStyleContext *context = pgtk_widget_get_style_context(theme->window);
 
@@ -62,7 +58,7 @@ static void draw_pane(status_theme_t *theme, cairo_t *cr, int width, int height)
     pgtk_render_background(context, cr, 0, 0, width, height);
 }
 
-static void draw_gripper(status_theme_t *theme, cairo_t *cr, int width, int height)
+static void draw_gripper(uxgtk_theme_t *theme, cairo_t *cr, int width, int height)
 {
     GtkStyleContext *context = pgtk_widget_get_style_context(theme->window);
 
@@ -79,18 +75,16 @@ static void draw_gripper(status_theme_t *theme, cairo_t *cr, int width, int heig
 static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
                             int width, int height)
 {
-    status_theme_t *status_theme = (status_theme_t *)theme;
-
     switch (part_id)
     {
         case 0:
         case SP_PANE:
         case SP_GRIPPERPANE:
-            draw_pane(status_theme, cr, width, height);
+            draw_pane(theme, cr, width, height);
             return;
 
         case SP_GRIPPER:
-            draw_gripper(status_theme, cr, width, height);
+            draw_gripper(theme, cr, width, height);
             return;
     }
 
@@ -119,13 +113,6 @@ static BOOL is_part_defined(int part_id, int state_id)
     return (part_id >= 0 && part_id <= SP_GRIPPER);
 }
 
-static void destroy(uxgtk_theme_t *theme)
-{
-    pgtk_widget_destroy(((status_theme_t *)theme)->window);
-
-    free(theme);
-}
-
 uxgtk_theme_t *uxgtk_status_theme_create(void)
 {
     status_theme_t *theme;
@@ -135,11 +122,9 @@ uxgtk_theme_t *uxgtk_status_theme_create(void)
     theme = malloc(sizeof(status_theme_t));
     memset(theme, 0, sizeof(status_theme_t));
 
-    theme->base.vtable = &status_vtable;
+    uxgtk_theme_init(&theme->base, &status_vtable);
 
-    theme->window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
-
-    pgtk_widget_style_get(theme->window,
+    pgtk_widget_style_get(theme->base.window,
                           "resize-grip-width", &theme->grip_width,
                           "resize-grip-height", &theme->grip_height,
                           NULL);

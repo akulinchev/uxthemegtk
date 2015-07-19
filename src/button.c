@@ -36,8 +36,6 @@ typedef struct _button_theme
 
     int indicator_size;
 
-    GtkWidget *window;
-    GtkWidget *fixed;
     GtkWidget *button;
     GtkWidget *check;
     GtkWidget *radio;
@@ -55,14 +53,12 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
 static HRESULT get_part_size(uxgtk_theme_t *theme, int part_id, int state_id,
                              RECT *rect, SIZE *size);
 static BOOL is_part_defined(int part_id, int state_id);
-static void destroy(uxgtk_theme_t *theme);
 
 static const uxgtk_theme_vtable_t button_vtable = {
     get_color,
     draw_background,
     get_part_size,
-    is_part_defined,
-    destroy
+    is_part_defined
 };
 
 static GtkWidget *get_button(button_theme_t *theme)
@@ -70,7 +66,7 @@ static GtkWidget *get_button(button_theme_t *theme)
     if (theme->button == NULL)
     {
         theme->button = pgtk_button_new();
-        pgtk_container_add((GtkContainer*)theme->fixed, theme->button);
+        pgtk_container_add((GtkContainer *)theme->base.layout, theme->button);
     }
 
     return theme->button;
@@ -81,7 +77,7 @@ static GtkWidget *get_radio(button_theme_t *theme)
     if (theme->radio == NULL)
     {
         theme->radio = pgtk_radio_button_new(NULL);
-        pgtk_container_add((GtkContainer*)theme->fixed, theme->radio);
+        pgtk_container_add((GtkContainer *)theme->base.layout, theme->radio);
     }
 
     return theme->radio;
@@ -92,7 +88,7 @@ static GtkWidget *get_frame(button_theme_t *theme)
     if (theme->frame == NULL)
     {
         theme->frame = pgtk_frame_new(NULL);
-        pgtk_container_add((GtkContainer*)theme->fixed, theme->frame);
+        pgtk_container_add((GtkContainer *)theme->base.layout, theme->frame);
     }
 
     return theme->frame;
@@ -103,7 +99,7 @@ static GtkWidget *get_label(button_theme_t *theme)
     if (theme->label == NULL)
     {
         theme->label = pgtk_label_new(NULL);
-        pgtk_container_add((GtkContainer*)theme->fixed, theme->label);
+        pgtk_container_add((GtkContainer *)theme->base.layout, theme->label);
     }
 
     return theme->label;
@@ -115,7 +111,7 @@ static GtkWidget *get_button_label(button_theme_t *theme)
     {
         GtkWidget *button = get_button(theme);
         theme->button_label = pgtk_label_new(NULL);
-        pgtk_container_add((GtkContainer*)button, theme->button_label);
+        pgtk_container_add((GtkContainer *)button, theme->button_label);
     }
 
     return theme->button_label;
@@ -126,7 +122,7 @@ static GtkWidget *get_check_label(button_theme_t *theme)
     if (theme->check_label == NULL)
     {
         theme->check_label = pgtk_label_new(NULL);
-        pgtk_container_add((GtkContainer*)theme->check, theme->check_label);
+        pgtk_container_add((GtkContainer *)theme->check, theme->check_label);
     }
 
     return theme->check_label;
@@ -138,7 +134,7 @@ static GtkWidget *get_radio_label(button_theme_t *theme)
     {
         GtkWidget *radio = get_radio(theme);
         theme->radio_label = pgtk_label_new(NULL);
-        pgtk_container_add((GtkContainer*)radio, theme->radio_label);
+        pgtk_container_add((GtkContainer *)radio, theme->radio_label);
     }
 
     return theme->radio_label;
@@ -458,14 +454,6 @@ static BOOL is_part_defined(int part_id, int state_id)
     return (part_id > 0 && part_id < BP_COMMANDLINK);
 }
 
-static void destroy(uxgtk_theme_t *theme)
-{
-    /* Destroy the toplevel widget */
-    pgtk_widget_destroy(((button_theme_t *)theme)->window);
-
-    free(theme);
-}
-
 uxgtk_theme_t *uxgtk_button_theme_create(void)
 {
     button_theme_t *theme;
@@ -475,15 +463,12 @@ uxgtk_theme_t *uxgtk_button_theme_create(void)
     theme = malloc(sizeof(button_theme_t));
     memset(theme, 0, sizeof(button_theme_t));
 
-    theme->base.vtable = &button_vtable;
+    uxgtk_theme_init(&theme->base, &button_vtable);
 
-    /* This widgets are always needed. Other will be created on demand. */
-    theme->window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
-    theme->fixed = pgtk_fixed_new();
+    /* Other widgets will be created on demand */
     theme->check = pgtk_check_button_new();
 
-    pgtk_container_add((GtkContainer*)theme->window, theme->fixed);
-    pgtk_container_add((GtkContainer*)theme->fixed, theme->check);
+    pgtk_container_add((GtkContainer *)theme->base.layout, theme->check);
 
     /* Used for both check- and radiobuttons */
     pgtk_widget_style_get(theme->check, "indicator-size", &theme->indicator_size, NULL);

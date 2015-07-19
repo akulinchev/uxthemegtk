@@ -44,14 +44,12 @@ typedef struct _combobox_theme
 static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
                             int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
-static void destroy(uxgtk_theme_t *theme);
 
 static const uxgtk_theme_vtable_t combobox_vtable = {
     NULL, /* get_color */
     draw_background,
     NULL, /* get_part_size */
-    is_part_defined,
-    destroy
+    is_part_defined
 };
 
 static GtkStateFlags get_border_state_flags(int state_id)
@@ -98,7 +96,7 @@ static GtkStateFlags get_dropdown_button_state_flags(int state_id)
 
 static void iter_callback(GtkWidget *widget, gpointer data)
 {
-    if (pg_type_check_instance_is_a((GTypeInstance*)widget, pgtk_toggle_button_get_type()))
+    if (pg_type_check_instance_is_a((GTypeInstance *)widget, pgtk_toggle_button_get_type()))
         ((combobox_theme_t *)data)->button = widget;
 }
 
@@ -185,17 +183,6 @@ static BOOL is_part_defined(int part_id, int state_id)
             part_id == CP_DROPDOWNBUTTONLEFT || part_id == CP_DROPDOWNBUTTONRIGHT);
 }
 
-static void destroy(uxgtk_theme_t *theme)
-{
-    combobox_theme_t *combobox_theme = (combobox_theme_t *)theme;
-
-    /* Destroy the toplevel widgets */
-    pgtk_widget_destroy(combobox_theme->combobox);
-    pgtk_widget_destroy(combobox_theme->entry);
-
-    free(theme);
-}
-
 uxgtk_theme_t *uxgtk_combobox_theme_create(void)
 {
     combobox_theme_t *theme;
@@ -205,16 +192,19 @@ uxgtk_theme_t *uxgtk_combobox_theme_create(void)
     theme = malloc(sizeof(combobox_theme_t));
     memset(theme, 0, sizeof(combobox_theme_t));
 
-    theme->base.vtable = &combobox_vtable;
+    uxgtk_theme_init(&theme->base, &combobox_vtable);
 
     /* I use a simple entry because .combobox-entry has no right border sometimes */
     theme->entry = pgtk_entry_new();
     theme->combobox = pgtk_combo_box_new_with_entry();
 
-    /* Extract button */
-    pgtk_container_forall((GtkContainer*)theme->combobox, iter_callback, theme);
+    pgtk_container_add((GtkContainer *)theme->base.layout, theme->entry);
+    pgtk_container_add((GtkContainer *)theme->base.layout, theme->combobox);
 
-    theme->arrow = pgtk_bin_get_child((GtkBin*)theme->button);
+    /* Extract button */
+    pgtk_container_forall((GtkContainer *)theme->combobox, iter_callback, theme);
+
+    theme->arrow = pgtk_bin_get_child((GtkBin *)theme->button);
 
     pgtk_widget_style_get(theme->combobox,
                           "arrow-size", &theme->arrow_size,

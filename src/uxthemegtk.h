@@ -37,12 +37,14 @@ struct _uxgtk_theme_vtable
     HRESULT (*get_part_size)(uxgtk_theme_t *theme, int part_id, int state_id,
                              RECT *rect, SIZE *size);
     BOOL (*is_part_defined)(int part_id, int state_id);
-    void (*destroy)(uxgtk_theme_t *theme);
 };
 
 struct _uxgtk_theme
 {
     const uxgtk_theme_vtable_t *vtable;
+
+    GtkWidget *window;
+    GtkWidget *layout;
 };
 
 typedef HANDLE HTHEMEFILE;
@@ -132,5 +134,7 @@ uxgtk_theme_t *uxgtk_tab_theme_create(void);
 uxgtk_theme_t *uxgtk_toolbar_theme_create(void);
 uxgtk_theme_t *uxgtk_trackbar_theme_create(void);
 uxgtk_theme_t *uxgtk_window_theme_create(void);
+
+void uxgtk_theme_init(uxgtk_theme_t *theme, const uxgtk_theme_vtable_t *vtable);
 
 #endif /* UXTHEMEGTK_H */

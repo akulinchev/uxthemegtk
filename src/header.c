@@ -38,20 +38,18 @@ typedef struct _header_theme
 static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
                             int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
-static void destroy(uxgtk_theme_t *theme);
 
 static const uxgtk_theme_vtable_t header_vtable = {
     NULL, /* get_color */
     draw_background,
     NULL, /* get_part_size */
-    is_part_defined,
-    destroy
+    is_part_defined
 };
 
 static void draw_item(header_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
     GtkWidget *widget = pgtk_tree_view_column_get_button(
-        pgtk_tree_view_get_column((GtkTreeView*)theme->treeview, 1));
+        pgtk_tree_view_get_column((GtkTreeView *)theme->treeview, 1));
     GtkStateFlags state = GTK_STATE_FLAG_NORMAL;
     GtkStyleContext *context = pgtk_widget_get_style_context(widget);
 
@@ -90,13 +88,6 @@ static BOOL is_part_defined(int part_id, int state_id)
     return (part_id == HP_HEADERITEM);
 }
 
-static void destroy(uxgtk_theme_t *theme)
-{
-    pgtk_widget_destroy(((header_theme_t *)theme)->treeview);
-
-    free(theme);
-}
-
 uxgtk_theme_t *uxgtk_header_theme_create(void)
 {
     header_theme_t *theme;
@@ -106,13 +97,15 @@ uxgtk_theme_t *uxgtk_header_theme_create(void)
     theme = malloc(sizeof(header_theme_t));
     memset(theme, 0, sizeof(header_theme_t));
 
-    theme->base.vtable = &header_vtable;
+    uxgtk_theme_init(&theme->base, &header_vtable);
 
     theme->treeview = pgtk_tree_view_new();
 
-    pgtk_tree_view_append_column((GtkTreeView*)theme->treeview, pgtk_tree_view_column_new());
-    pgtk_tree_view_append_column((GtkTreeView*)theme->treeview, pgtk_tree_view_column_new());
-    pgtk_tree_view_append_column((GtkTreeView*)theme->treeview, pgtk_tree_view_column_new());
+    pgtk_tree_view_append_column((GtkTreeView *)theme->treeview, pgtk_tree_view_column_new());
+    pgtk_tree_view_append_column((GtkTreeView *)theme->treeview, pgtk_tree_view_column_new());
+    pgtk_tree_view_append_column((GtkTreeView *)theme->treeview, pgtk_tree_view_column_new());
+
+    pgtk_container_add((GtkContainer *)theme->base.layout, theme->treeview);
 
     return &theme->base;
 }

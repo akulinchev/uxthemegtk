@@ -41,14 +41,12 @@ typedef struct _trackbar_theme
 static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
                             int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
-static void destroy(uxgtk_theme_t *theme);
 
 static const uxgtk_theme_vtable_t trackbar_vtable = {
     NULL, /* get_color */
     draw_background,
     NULL, /* get_part_size */
-    is_part_defined,
-    destroy
+    is_part_defined
 };
 
 static void draw_track(trackbar_theme_t *theme, cairo_t *cr, int part_id, int width, int height)
@@ -141,13 +139,6 @@ static BOOL is_part_defined(int part_id, int state_id)
     return (part_id > 0 && part_id < TKP_TICS);
 }
 
-static void destroy(uxgtk_theme_t *theme)
-{
-    pgtk_widget_destroy(((trackbar_theme_t *)theme)->scale);
-
-    free(theme);
-}
-
 uxgtk_theme_t *uxgtk_trackbar_theme_create(void)
 {
     trackbar_theme_t *theme;
@@ -157,9 +148,11 @@ uxgtk_theme_t *uxgtk_trackbar_theme_create(void)
     theme = malloc(sizeof(trackbar_theme_t));
     memset(theme, 0, sizeof(trackbar_theme_t));
 
-    theme->base.vtable = &trackbar_vtable;
+    uxgtk_theme_init(&theme->base, &trackbar_vtable);
 
     theme->scale = pgtk_scale_new(GTK_ORIENTATION_HORIZONTAL, NULL);
+
+    pgtk_container_add((GtkContainer *)theme->base.layout, theme->scale);
 
     pgtk_widget_style_get(theme->scale,
                           "slider-length", &theme->slider_length,

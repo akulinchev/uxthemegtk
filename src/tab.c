@@ -34,21 +34,18 @@ typedef struct _tab_theme
 
     int tab_overlap;
 
-    GtkWidget *window;
     GtkWidget *notebook;
 } tab_theme_t;
 
 static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
                             int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
-static void destroy(uxgtk_theme_t *theme);
 
 static const uxgtk_theme_vtable_t tab_vtable = {
     NULL, /* get_color */
     draw_background,
     NULL, /* get_part_size */
-    is_part_defined,
-    destroy
+    is_part_defined
 };
 
 static void draw_tab_item(tab_theme_t *theme, cairo_t *cr, int part_id, int state_id,
@@ -121,7 +118,7 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
     GtkStyleContext *context;
 
     /* Draw a dialog background to fix some themes like Ambiance */
-    context = pgtk_widget_get_style_context(tab_theme->window);
+    context = pgtk_widget_get_style_context(theme->window);
     pgtk_render_background(context, cr, 0, 0, width, height - 1);
 
     switch (part_id)
@@ -155,13 +152,6 @@ static BOOL is_part_defined(int part_id, int state_id)
     return (part_id > 0 && part_id <= TABP_AEROWIZARDBODY);
 }
 
-static void destroy(uxgtk_theme_t *theme)
-{
-    pgtk_widget_destroy(((tab_theme_t *)theme)->notebook);
-
-    free(theme);
-}
-
 uxgtk_theme_t *uxgtk_tab_theme_create(void)
 {
     tab_theme_t *theme;
@@ -172,12 +162,11 @@ uxgtk_theme_t *uxgtk_tab_theme_create(void)
     theme = malloc(sizeof(tab_theme_t));
     memset(theme, 0, sizeof(tab_theme_t));
 
-    theme->base.vtable = &tab_vtable;
+    uxgtk_theme_init(&theme->base, &tab_vtable);
 
-    theme->window = pgtk_window_new(GTK_WINDOW_TOPLEVEL);
     theme->notebook = pgtk_notebook_new();
 
-    pgtk_container_add((GtkContainer*)theme->window, theme->notebook);
+    pgtk_container_add((GtkContainer *)theme->base.layout, theme->notebook);
 
     context = pgtk_widget_get_style_context(theme->notebook);
 
