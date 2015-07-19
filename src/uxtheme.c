@@ -18,34 +18,61 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "wine/library.h"
+#include "uxthemegtk.h"
 
 #include <dlfcn.h>
 #include <stdarg.h>
-#include <windef.h>
-#include <winbase.h>
-#include <wingdi.h>
-#include <winuser.h>
-#include <winerror.h>
-#include <uxtheme.h>
-#include <vsstyle.h>
-#include <vssym32.h>
+
+#include "windef.h"
+#include "winbase.h"
+#include "wingdi.h"
+#include "winuser.h"
+#include "winerror.h"
+#include "uxtheme.h"
+#include "vsstyle.h"
+#include "vssym32.h"
 #include "vfwmsgs.h"
 #include "shlobj.h"
 
-#include <wine/debug.h>
-
-#include "uxthemegtk_internal.h"
+#include "wine/debug.h"
+#include "wine/library.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
-#define SONAME_LIBGTK_3 "libgtk-3.so"
-#define SONAME_LIBCAIRO "libcairo.so"
-#define SONAME_LIBGOBJECT_2_0 "libgobject-2.0.so"
+static void *libgtk3 = NULL;
+static void *libcairo = NULL;
+static void *libgobject2 = NULL;
 
-static void* libgtk3 = NULL;
-static void* libcairo = NULL;
-static void* libgobject2 = NULL;
+static const struct {
+    const WCHAR *classname;
+    uxgtk_theme_t *(*create)(void);
+} classes[] = {
+    { VSCLASS_BUTTON,   uxgtk_button_theme_create },
+    { VSCLASS_COMBOBOX, uxgtk_combobox_theme_create },
+    { VSCLASS_EDIT,     uxgtk_edit_theme_create },
+    { VSCLASS_HEADER,   uxgtk_header_theme_create },
+    { VSCLASS_LISTBOX,  uxgtk_listbox_theme_create },
+    { VSCLASS_LISTVIEW, uxgtk_listview_theme_create },
+    { VSCLASS_MENU,     uxgtk_menu_theme_create },
+    { VSCLASS_REBAR,    uxgtk_rebar_theme_create },
+    { VSCLASS_STATUS,   uxgtk_status_theme_create },
+    { VSCLASS_TAB,      uxgtk_tab_theme_create },
+    { VSCLASS_TOOLBAR,  uxgtk_toolbar_theme_create },
+    { VSCLASS_TRACKBAR, uxgtk_trackbar_theme_create },
+    { VSCLASS_WINDOW,   uxgtk_window_theme_create }
+};
+
+#ifndef SONAME_LIBGTK_3
+#define SONAME_LIBGTK_3 "libgtk-3.so"
+#endif
+
+#ifndef SONAME_LIBCAIRO
+#define SONAME_LIBCAIRO "libcairo.so"
+#endif
+
+#ifndef SONAME_LIBGOBJECT_2_0
+#define SONAME_LIBGOBJECT_2_0 "libgobject-2.0.so"
+#endif
 
 #define MAKE_FUNCPTR(f) typeof(f) * p##f = NULL
 MAKE_FUNCPTR(cairo_create);
@@ -109,27 +136,6 @@ MAKE_FUNCPTR(gtk_widget_style_get);
 MAKE_FUNCPTR(gtk_window_new);
 #undef MAKE_FUNCPTR
 
-static const struct {
-    const WCHAR *classname;
-    uxgtk_theme_t *(*create)(void);
-} classes[] = {
-    { VSCLASS_BUTTON,   uxgtk_button_theme_create },
-    { VSCLASS_COMBOBOX, uxgtk_combobox_theme_create },
-    { VSCLASS_EDIT,     uxgtk_edit_theme_create },
-    { VSCLASS_HEADER,   uxgtk_header_theme_create },
-    { VSCLASS_LISTBOX,  uxgtk_listbox_theme_create },
-    { VSCLASS_LISTVIEW, uxgtk_listview_theme_create },
-    { VSCLASS_MENU,     uxgtk_menu_theme_create },
-    { VSCLASS_REBAR,    uxgtk_rebar_theme_create },
-    { VSCLASS_STATUS,   uxgtk_status_theme_create },
-    { VSCLASS_TAB,      uxgtk_tab_theme_create },
-    { VSCLASS_TOOLBAR,  uxgtk_toolbar_theme_create },
-    { VSCLASS_TRACKBAR, uxgtk_trackbar_theme_create },
-    { VSCLASS_WINDOW,   uxgtk_window_theme_create }
-};
-
-#define CLASSES_SIZE (sizeof(classes) / sizeof(classes[0]))
-
 #define NUM_SYS_COLORS (COLOR_MENUBAR + 1)
 #define MENU_HEIGHT 20
 #define CLASSLIST_MAXLEN 128
@@ -140,11 +146,6 @@ static const WCHAR THEME_PROPERTY[] = {'u','x','g','t','k','_','t','h','e','m','
 static const WCHAR FAKE_NAME[] = {'G','T','K',0};
 static const WCHAR FAKE_COLOR[] = {'N','o','r','m','a','l','C','o','l','o','r',0};
 static const WCHAR FAKE_SIZE[] = {'N','o','r','m','a','l','S','i','z','e',0};
-
-#define GDKRGBA_TO_COLORREF(rgba) RGB( \
-    (int)(0.5 + CLAMP(rgba.red, 0.0, 1.0) * 255.0), \
-    (int)(0.5 + CLAMP(rgba.green, 0.0, 1.0) * 255.0), \
-    (int)(0.5 + CLAMP(rgba.blue, 0.0, 1.0) * 255.0))
 
 static void apply_colors(void)
 {
@@ -180,9 +181,15 @@ static void fix_sys_params(void)
 
 static void free_gtk3_libs(void)
 {
-    if (libgtk3) wine_dlclose(libgtk3, NULL, 0);
-    if (libcairo) wine_dlclose(libcairo, NULL, 0);
-    if (libgobject2) wine_dlclose(libgobject2, NULL, 0);
+    if (libgtk3 != NULL)
+        wine_dlclose(libgtk3, NULL, 0);
+
+    if (libcairo != NULL)
+        wine_dlclose(libcairo, NULL, 0);
+
+    if (libgobject2 != NULL)
+        wine_dlclose(libgobject2, NULL, 0);
+
     libgtk3 = libcairo = libgobject2 = NULL;
 }
 
@@ -196,30 +203,31 @@ static void free_gtk3_libs(void)
 static BOOL load_gtk3_libs(void)
 {
     libgtk3 = wine_dlopen(SONAME_LIBGTK_3, RTLD_NOW, NULL, 0);
-    if (!libgtk3)
+
+    if (libgtk3 == NULL)
     {
         FIXME("Wine cannot find the %s library.\n", SONAME_LIBGTK_3);
         goto error;
     }
 
-    LOAD_FUNCPTR(libgtk3, gtk_bin_get_child);
-    LOAD_FUNCPTR(libgtk3, gtk_button_new);
-    LOAD_FUNCPTR(libgtk3, gtk_check_button_new);
-    LOAD_FUNCPTR(libgtk3, gtk_combo_box_new_with_entry);
-    LOAD_FUNCPTR(libgtk3, gtk_container_add);
-    LOAD_FUNCPTR(libgtk3, gtk_container_forall);
-    LOAD_FUNCPTR(libgtk3, gtk_entry_new);
-    LOAD_FUNCPTR(libgtk3, gtk_fixed_new);
-    LOAD_FUNCPTR(libgtk3, gtk_frame_new);
+    LOAD_FUNCPTR(libgtk3, gtk_bin_get_child)
+    LOAD_FUNCPTR(libgtk3, gtk_button_new)
+    LOAD_FUNCPTR(libgtk3, gtk_check_button_new)
+    LOAD_FUNCPTR(libgtk3, gtk_combo_box_new_with_entry)
+    LOAD_FUNCPTR(libgtk3, gtk_container_add)
+    LOAD_FUNCPTR(libgtk3, gtk_container_forall)
+    LOAD_FUNCPTR(libgtk3, gtk_entry_new)
+    LOAD_FUNCPTR(libgtk3, gtk_fixed_new)
+    LOAD_FUNCPTR(libgtk3, gtk_frame_new)
     LOAD_FUNCPTR(libgtk3, gtk_init)
-    LOAD_FUNCPTR(libgtk3, gtk_label_new);
-    LOAD_FUNCPTR(libgtk3, gtk_menu_bar_new);
-    LOAD_FUNCPTR(libgtk3, gtk_menu_item_new);
-    LOAD_FUNCPTR(libgtk3, gtk_menu_item_set_submenu);
-    LOAD_FUNCPTR(libgtk3, gtk_menu_new);
-    LOAD_FUNCPTR(libgtk3, gtk_menu_shell_append);
-    LOAD_FUNCPTR(libgtk3, gtk_notebook_new);
-    LOAD_FUNCPTR(libgtk3, gtk_radio_button_new);
+    LOAD_FUNCPTR(libgtk3, gtk_label_new)
+    LOAD_FUNCPTR(libgtk3, gtk_menu_bar_new)
+    LOAD_FUNCPTR(libgtk3, gtk_menu_item_new)
+    LOAD_FUNCPTR(libgtk3, gtk_menu_item_set_submenu)
+    LOAD_FUNCPTR(libgtk3, gtk_menu_new)
+    LOAD_FUNCPTR(libgtk3, gtk_menu_shell_append)
+    LOAD_FUNCPTR(libgtk3, gtk_notebook_new)
+    LOAD_FUNCPTR(libgtk3, gtk_radio_button_new)
     LOAD_FUNCPTR(libgtk3, gtk_render_arrow)
     LOAD_FUNCPTR(libgtk3, gtk_render_background)
     LOAD_FUNCPTR(libgtk3, gtk_render_check)
@@ -228,9 +236,9 @@ static BOOL load_gtk3_libs(void)
     LOAD_FUNCPTR(libgtk3, gtk_render_line)
     LOAD_FUNCPTR(libgtk3, gtk_render_option)
     LOAD_FUNCPTR(libgtk3, gtk_render_slider)
-    LOAD_FUNCPTR(libgtk3, gtk_scale_new);
-    LOAD_FUNCPTR(libgtk3, gtk_scrolled_window_new);
-    LOAD_FUNCPTR(libgtk3, gtk_separator_tool_item_new);
+    LOAD_FUNCPTR(libgtk3, gtk_scale_new)
+    LOAD_FUNCPTR(libgtk3, gtk_scrolled_window_new)
+    LOAD_FUNCPTR(libgtk3, gtk_separator_tool_item_new)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_add_class)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_add_region)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_get_background_color)
@@ -242,20 +250,21 @@ static BOOL load_gtk3_libs(void)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_save)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_set_junction_sides)
     LOAD_FUNCPTR(libgtk3, gtk_style_context_set_state)
-    LOAD_FUNCPTR(libgtk3, gtk_toggle_button_get_type);
-    LOAD_FUNCPTR(libgtk3, gtk_toolbar_new);
-    LOAD_FUNCPTR(libgtk3, gtk_tree_view_append_column);
-    LOAD_FUNCPTR(libgtk3, gtk_tree_view_column_get_button);
-    LOAD_FUNCPTR(libgtk3, gtk_tree_view_column_new);
-    LOAD_FUNCPTR(libgtk3, gtk_tree_view_get_column);
-    LOAD_FUNCPTR(libgtk3, gtk_tree_view_new);
-    LOAD_FUNCPTR(libgtk3, gtk_widget_destroy);
-    LOAD_FUNCPTR(libgtk3, gtk_widget_get_style_context);
-    LOAD_FUNCPTR(libgtk3, gtk_widget_style_get);
-    LOAD_FUNCPTR(libgtk3, gtk_window_new);
+    LOAD_FUNCPTR(libgtk3, gtk_toggle_button_get_type)
+    LOAD_FUNCPTR(libgtk3, gtk_toolbar_new)
+    LOAD_FUNCPTR(libgtk3, gtk_tree_view_append_column)
+    LOAD_FUNCPTR(libgtk3, gtk_tree_view_column_get_button)
+    LOAD_FUNCPTR(libgtk3, gtk_tree_view_column_new)
+    LOAD_FUNCPTR(libgtk3, gtk_tree_view_get_column)
+    LOAD_FUNCPTR(libgtk3, gtk_tree_view_new)
+    LOAD_FUNCPTR(libgtk3, gtk_widget_destroy)
+    LOAD_FUNCPTR(libgtk3, gtk_widget_get_style_context)
+    LOAD_FUNCPTR(libgtk3, gtk_widget_style_get)
+    LOAD_FUNCPTR(libgtk3, gtk_window_new)
 
     libcairo = wine_dlopen(SONAME_LIBCAIRO, RTLD_NOW, NULL, 0);
-    if (!libcairo)
+
+    if (libcairo == NULL)
     {
         FIXME("Wine cannot find the %s library.\n", SONAME_LIBCAIRO);
         goto error;
@@ -270,7 +279,8 @@ static BOOL load_gtk3_libs(void)
     LOAD_FUNCPTR(libcairo, cairo_surface_flush)
 
     libgobject2 = wine_dlopen(SONAME_LIBGOBJECT_2_0, RTLD_NOW, NULL, 0);
-    if (!libgobject2)
+
+    if (libgobject2 == NULL)
     {
         FIXME("Wine cannot find the %s library.\n", SONAME_LIBGOBJECT_2_0);
         goto error;
@@ -281,7 +291,9 @@ static BOOL load_gtk3_libs(void)
     return TRUE;
 
 error:
+
     free_gtk3_libs();
+
     return FALSE;
 }
 
@@ -289,9 +301,10 @@ error:
 
 static BOOL init(void)
 {
-    static const WCHAR themesSubdir[] = { '\\','T','h','e','m','e','s',0 };
-    static WCHAR style_folder[] = {'\\', 'g','t','k', 0};
-    static WCHAR style_file[] = {'\\','g','t','k','.','m','s','s','t','y','l','e','s', 0};
+    static const WCHAR themes_subdir[] = { '\\','T','h','e','m','e','s',0 };
+    static const WCHAR style_folder[] = {'\\', 'g','t','k', 0};
+    static const WCHAR style_file[] = {'\\','g','t','k','.','m','s','s','t','y','l','e','s', 0};
+
     HANDLE file;
 
     if (!load_gtk3_libs())
@@ -302,22 +315,25 @@ static BOOL init(void)
     apply_colors();
     fix_sys_params();
 
-    if (FAILED (SHGetFolderPathW (NULL, CSIDL_RESOURCES|CSIDL_FLAG_CREATE, NULL,
+    if (FAILED(SHGetFolderPathW(NULL, CSIDL_RESOURCES|CSIDL_FLAG_CREATE, NULL,
         SHGFP_TYPE_CURRENT, fake_msstyles_file)))
     {
         fake_msstyles_file[0] = 0;
         return TRUE;
     }
 
-    lstrcatW (fake_msstyles_file, themesSubdir);
-    lstrcatW (fake_msstyles_file, style_folder);
+    lstrcatW(fake_msstyles_file, themes_subdir);
+    lstrcatW(fake_msstyles_file, style_folder);
 
-    SHCreateDirectoryExW (NULL, fake_msstyles_file, NULL);
+    SHCreateDirectoryExW(NULL, fake_msstyles_file, NULL);
 
-    lstrcatW (fake_msstyles_file, style_file);
+    lstrcatW(fake_msstyles_file, style_file);
 
-    file = CreateFileW(fake_msstyles_file, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+    file = CreateFileW(fake_msstyles_file, GENERIC_WRITE, 0, NULL, CREATE_NEW,
+                       FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (file != INVALID_HANDLE_VALUE)
+        CloseHandle(file);
 
     return TRUE;
 }
@@ -408,6 +424,42 @@ static BOOL match_class(LPCWSTR classlist, LPCWSTR classname)
     return FALSE;
 }
 
+static BOOL is_fake_theme(const WCHAR *path)
+{
+    BY_HANDLE_FILE_INFORMATION fake_info, file_info;
+    HANDLE fake_handle, file_handle;
+    BOOL ret = FALSE;
+
+    fake_handle = CreateFileW(fake_msstyles_file, GENERIC_READ,
+                              FILE_SHARE_READ | FILE_SHARE_DELETE | FILE_SHARE_WRITE,
+                              NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    file_handle = CreateFileW(path, GENERIC_READ,
+                              FILE_SHARE_READ | FILE_SHARE_DELETE | FILE_SHARE_WRITE,
+                              NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (file_handle != INVALID_HANDLE_VALUE && fake_handle != INVALID_HANDLE_VALUE)
+    {
+        if (GetFileInformationByHandle(fake_handle, &fake_info) &&
+            GetFileInformationByHandle(file_handle, &file_info))
+        {
+            if (fake_info.dwVolumeSerialNumber == file_info.dwVolumeSerialNumber &&
+                fake_info.nFileIndexHigh == file_info.nFileIndexHigh &&
+                fake_info.nFileIndexLow == file_info.nFileIndexLow)
+            {
+                ret = TRUE;
+            }
+        }
+    }
+
+    if (file_handle != INVALID_HANDLE_VALUE)
+        CloseHandle(file_handle);
+
+    if (fake_handle != INVALID_HANDLE_VALUE)
+        CloseHandle(fake_handle);
+
+    return ret;
+}
+
 HRESULT WINAPI CloseThemeData(HTHEME htheme)
 {
     uxgtk_theme_t *theme = (uxgtk_theme_t *)htheme;
@@ -445,6 +497,7 @@ HRESULT WINAPI EnableThemeDialogTexture(HWND hwnd, DWORD flags)
 HRESULT WINAPI EnableTheming(BOOL enable)
 {
     TRACE("(%u)\n", enable);
+
     return S_OK; /* Always enabled */
 }
 
@@ -455,9 +508,14 @@ HRESULT WINAPI GetCurrentThemeName(LPWSTR filename, int filename_maxlen,
     TRACE("(%p, %d, %p, %d, %p, %d)\n", filename, filename_maxlen,
           color, color_maxlen, size, size_maxlen);
 
-    lstrcpynW(filename, fake_msstyles_file, filename_maxlen);
-    lstrcpynW(color, FAKE_COLOR, color_maxlen);
-    lstrcpynW(size, FAKE_SIZE, size_maxlen);
+    if (filename != NULL)
+        lstrcpynW(filename, fake_msstyles_file, filename_maxlen);
+
+    if (color != NULL)
+        lstrcpynW(color, FAKE_COLOR, color_maxlen);
+
+    if (size != NULL)
+        lstrcpynW(size, FAKE_SIZE, size_maxlen);
 
     return S_OK;
 }
@@ -465,30 +523,35 @@ HRESULT WINAPI GetCurrentThemeName(LPWSTR filename, int filename_maxlen,
 DWORD WINAPI GetThemeAppProperties(void)
 {
     TRACE("()\n");
+
     return STAP_ALLOW_CONTROLS; /* Non-client drawing is not supported */
 }
 
 HTHEME WINAPI GetWindowTheme(HWND hwnd)
 {
     TRACE("(%p)\n", hwnd);
+
     return GetPropW(hwnd, THEME_PROPERTY);
 }
 
 BOOL WINAPI IsAppThemed(void)
 {
     TRACE("()\n");
+
     return TRUE; /* Always themed */
 }
 
 BOOL WINAPI IsThemeActive(void)
 {
     TRACE("()\n");
+
     return TRUE; /* Always active */
 }
 
 BOOL WINAPI IsThemeDialogTextureEnabled(HWND hwnd)
 {
     TRACE("(%p)\n", hwnd);
+
     return TRUE; /* Always enabled */
 }
 
@@ -496,7 +559,7 @@ HTHEME WINAPI OpenThemeData(HWND hwnd, LPCWSTR classlist)
 {
     int i;
 
-    TRACE("(%p, %s)\n", hwnd, wine_dbgstr_w(classlist));
+    TRACE("(%p, %s)\n", hwnd, debugstr_w(classlist));
 
     /* comctl32.dll likes to send NULL */
     if (classlist == NULL)
@@ -505,14 +568,14 @@ HTHEME WINAPI OpenThemeData(HWND hwnd, LPCWSTR classlist)
         return NULL;
     }
 
-    for (i = 0; i < CLASSES_SIZE; i++)
+    for (i = 0; i < sizeof(classes) / sizeof(classes[0]); i++)
     {
         if (match_class(classlist, classes[i].classname))
         {
             uxgtk_theme_t *theme;
 
-            TRACE("Using %s for %s.\n", wine_dbgstr_w(classes[i].classname),
-                  wine_dbgstr_w(classlist));
+            TRACE("Using %s for %s.\n", debugstr_w(classes[i].classname),
+                  debugstr_w(classlist));
 
             theme = classes[i].create();
 
@@ -521,7 +584,7 @@ HTHEME WINAPI OpenThemeData(HWND hwnd, LPCWSTR classlist)
         }
     }
 
-    FIXME("No matching theme for %s.\n", wine_dbgstr_w(classlist));
+    FIXME("No matching theme for %s.\n", debugstr_w(classlist));
     SetLastError(ERROR_NOT_FOUND);
     return NULL;
 }
@@ -529,14 +592,13 @@ HTHEME WINAPI OpenThemeData(HWND hwnd, LPCWSTR classlist)
 void WINAPI SetThemeAppProperties(DWORD flags)
 {
     TRACE("(%u)\n", flags);
-    /* Do nothing */
 }
 
 HRESULT WINAPI SetWindowTheme(HWND hwnd, LPCWSTR sub_app_name,
                               LPCWSTR sub_id_list)
 {
-    TRACE("(%p, %s, %s)\n", hwnd, wine_dbgstr_w(sub_app_name),
-          wine_dbgstr_w(sub_id_list));
+    TRACE("(%p, %s, %s)\n", hwnd, debugstr_w(sub_app_name),
+          debugstr_w(sub_id_list));
 
     return E_NOTIMPL;
 }
@@ -545,6 +607,7 @@ HRESULT WINAPI GetThemeBool(HTHEME htheme, int part_id, int state_id,
                             int prop_id, BOOL *value)
 {
     TRACE("(%p, %d, %d, %d, %p)\n", htheme, part_id, state_id, prop_id, value);
+
     return E_NOTIMPL;
 }
 
@@ -552,7 +615,7 @@ HRESULT WINAPI GetThemeColor(HTHEME htheme, int part_id, int state_id,
                              int prop_id, COLORREF *color)
 {
     HRESULT hr;
-    GdkRGBA rgba;
+    GdkRGBA rgba = {0, 0, 0, 0};
     uxgtk_theme_t *theme = (uxgtk_theme_t *)htheme;
 
     TRACE("(%p, %d, %d, %d, %p)\n", htheme, part_id, state_id, prop_id, color);
@@ -570,7 +633,9 @@ HRESULT WINAPI GetThemeColor(HTHEME htheme, int part_id, int state_id,
 
     if (SUCCEEDED(hr) && rgba.alpha > 0)
     {
-        *color = GDKRGBA_TO_COLORREF(rgba);
+        *color = RGB((int)(0.5 + CLAMP(rgba.red, 0.0, 1.0) * 255.0),
+                     (int)(0.5 + CLAMP(rgba.green, 0.0, 1.0) * 255.0),
+                     (int)(0.5 + CLAMP(rgba.blue, 0.0, 1.0) * 255.0));
         return S_OK;
     }
 
@@ -581,6 +646,7 @@ HRESULT WINAPI GetThemeEnumValue(HTHEME htheme, int part_id, int state_id,
                                  int prop_id, int *value)
 {
     TRACE("(%p, %d, %d, %d, %p)\n", htheme, part_id, state_id, prop_id, value);
+
     return E_NOTIMPL;
 }
 
@@ -598,9 +664,6 @@ HRESULT WINAPI GetThemeFont(HTHEME htheme, HDC hdc, int part_id, int state_id,
 {
     TRACE("(%p, %d, %d, %d, %p)\n", htheme, part_id, state_id, prop_id, font);
 
-    /* I have tried to implement this, but it looks very ugly, since not all
-     * controls use this themed font.
-     */
     return E_NOTIMPL;
 }
 
@@ -625,7 +688,7 @@ HRESULT WINAPI GetThemeMargins(HTHEME htheme, HDC hdc, int part_id, int state_id
 {
     TRACE("(%p, %d, %d, %d, %p, %p)\n", htheme, part_id, state_id, prop_id, rect, margins);
 
-    memset(margins, 0, sizeof(MARGINS)); /* Just set all margins to 0 */
+    memset(margins, 0, sizeof(MARGINS)); /* Set all margins to 0 */
 
     return S_OK;
 }
@@ -794,11 +857,13 @@ HRESULT WINAPI GetThemeSysFont(HTHEME htheme, int font_id, LOGFONTW *font)
 {
     TRACE("(%p, %d, %p)\n", htheme, font_id, font);
 
-    return E_NOTIMPL; /* See GetThemeFont */
+    return E_NOTIMPL;
 }
 
 HRESULT WINAPI GetThemeSysInt(HTHEME htheme, int int_id, int *value)
 {
+    TRACE("(%p, %d, %p)\n", htheme, int_id, value);
+
     return E_NOTIMPL;
 }
 
@@ -823,10 +888,11 @@ HRESULT WINAPI DrawThemeBackground(HTHEME htheme, HDC hdc, int part_id, int stat
                                    LPCRECT rect, LPCRECT clip_rect)
 {
     DTBGOPTS opts;
-    opts.dwSize = sizeof(DTBGOPTS);
-    opts.dwFlags = 0;
 
     TRACE("(%p, %p, %d, %d, %p, %p)\n", htheme, hdc, part_id, state_id, rect, clip_rect);
+
+    opts.dwSize = sizeof(DTBGOPTS);
+    opts.dwFlags = 0;
 
     if (clip_rect != NULL)
     {
@@ -1079,169 +1145,122 @@ BOOL WINAPI IsThemePartDefined(HTHEME htheme, int part_id, int state_id)
     return theme->vtable->is_part_defined(part_id, state_id);
 }
 
-static BOOL is_fake_theme(const WCHAR *path)
-{
-    BY_HANDLE_FILE_INFORMATION fakeInfo, fileInfo;
-    HANDLE fakeHandle, fileHandle;
-    BOOL ret = FALSE;
-
-    fakeHandle = CreateFileW(fake_msstyles_file, GENERIC_READ,
-                            FILE_SHARE_READ | FILE_SHARE_DELETE | FILE_SHARE_WRITE,
-                            NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    fileHandle = CreateFileW(path, GENERIC_READ,
-                            FILE_SHARE_READ | FILE_SHARE_DELETE | FILE_SHARE_WRITE,
-                            NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-
-    if (fileHandle != INVALID_HANDLE_VALUE && fakeHandle != INVALID_HANDLE_VALUE)
-    {
-        if (GetFileInformationByHandle(fakeHandle, &fakeInfo) &&
-            GetFileInformationByHandle(fileHandle, &fileInfo))
-        {
-            if (fakeInfo.dwVolumeSerialNumber == fileInfo.dwVolumeSerialNumber &&
-                fakeInfo.nFileIndexHigh == fileInfo.nFileIndexHigh &&
-                fakeInfo.nFileIndexLow == fileInfo.nFileIndexLow)
-            {
-                ret = TRUE;
-            }
-        }
-    }
-
-    if (fileHandle != INVALID_HANDLE_VALUE) CloseHandle(fileHandle);
-    if (fakeHandle != INVALID_HANDLE_VALUE) CloseHandle(fakeHandle);
-
-    return ret;
-}
-
-/**********************************************************************
- *      Undocumented functions
- */
 DWORD WINAPI QueryThemeServices(void)
 {
-    FIXME("stub\n");
+    TRACE("()\n");
+
     return 3; /* This is what is returned under XP in most cases */
 }
 
-HRESULT WINAPI OpenThemeFile(LPCWSTR pszThemeFileName, LPCWSTR pszColorName,
-                             LPCWSTR pszSizeName, HTHEMEFILE *hThemeFile,
-                             DWORD unknown)
+HRESULT WINAPI OpenThemeFile(LPCWSTR filename, LPCWSTR color, LPCWSTR size,
+                             HTHEMEFILE *hthemefile, DWORD unknown)
 {
-    TRACE("(%s,%s,%s,%p,%d)\n", debugstr_w(pszThemeFileName),
-          debugstr_w(pszColorName), debugstr_w(pszSizeName),
-          hThemeFile, unknown);
+    TRACE("(%s, %s, %s, %p, %d)\n", debugstr_w(filename), debugstr_w(color), debugstr_w(size),
+          hthemefile, unknown);
 
-    if (!is_fake_theme(pszThemeFileName))
+    if (!is_fake_theme(filename))
         return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
 
-    if (pszColorName && lstrcmpW(FAKE_COLOR, pszColorName))
+    if (color != NULL && lstrcmpW(FAKE_COLOR, color) != 0)
         return HRESULT_FROM_WIN32(ERROR_BAD_FORMAT);
 
-    if (pszSizeName && lstrcmpW(FAKE_SIZE, pszSizeName))
+    if (size != NULL && lstrcmpW(FAKE_SIZE, size) != 0)
         return HRESULT_FROM_WIN32(ERROR_BAD_FORMAT);
 
-    *hThemeFile = (HTHEMEFILE)0xdeafbeef;
+    *hthemefile = (HTHEMEFILE)0xdeafbeef;
+
     return S_OK;
 }
 
-HRESULT WINAPI CloseThemeFile(HTHEMEFILE hThemeFile)
+HRESULT WINAPI CloseThemeFile(HTHEMEFILE hthemefile)
 {
-    TRACE("(%p)\n", hThemeFile);
+    TRACE("(%p)\n", hthemefile);
+
     return S_OK;
 }
 
-HRESULT WINAPI ApplyTheme(HTHEMEFILE hThemeFile, char *unknown, HWND hWnd)
+HRESULT WINAPI ApplyTheme(HTHEMEFILE hthemefile, char *unknown, HWND hwnd)
 {
-    TRACE("(%p,%s,%p)\n", hThemeFile, unknown, hWnd);
+    TRACE("(%p, %s, %p)\n", hthemefile, unknown, hwnd);
+
     return S_OK;
 }
 
-HRESULT WINAPI GetThemeDefaults(LPCWSTR pszThemeFileName, LPWSTR pszColorName,
-                                DWORD dwColorNameLen, LPWSTR pszSizeName,
-                                DWORD dwSizeNameLen)
+HRESULT WINAPI GetThemeDefaults(LPCWSTR filename, LPWSTR color, DWORD color_maxlen,
+                                LPWSTR size, DWORD size_maxlen)
 {
-    TRACE("(%s,%p,%d,%p,%d)\n", debugstr_w(pszThemeFileName),
-          pszColorName, dwColorNameLen,
-          pszSizeName, dwSizeNameLen);
+    TRACE("(%s, %p, %d, %p, %d)\n", debugstr_w(filename), color, color_maxlen, size, size_maxlen);
 
-    if (!is_fake_theme(pszThemeFileName))
+    if (!is_fake_theme(filename))
         return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
 
-    lstrcpynW(pszColorName, FAKE_COLOR, dwColorNameLen);
-    lstrcpynW(pszSizeName, FAKE_SIZE, dwSizeNameLen);
+    lstrcpynW(color, FAKE_COLOR, color_maxlen);
+    lstrcpynW(size, FAKE_SIZE, size_maxlen);
 
     return S_OK;
 }
 
-HRESULT WINAPI EnumThemes(LPCWSTR pszThemePath, EnumThemeProc callback,
-                          LPVOID lpData)
+HRESULT WINAPI EnumThemes(LPCWSTR themepath, EnumThemeProc callback, LPVOID data)
 {
-    TRACE("(%s,%p,%p)\n", debugstr_w(pszThemePath), callback, lpData);
+    TRACE("(%s, %p, %p)\n", debugstr_w(themepath), callback, data);
 
     /* FIXME: check path */
-    callback(NULL, fake_msstyles_file, FAKE_NAME, FAKE_NAME, NULL, lpData);
+    callback(NULL, fake_msstyles_file, FAKE_NAME, FAKE_NAME, NULL, data);
 
     return S_OK;
 }
 
-HRESULT WINAPI EnumThemeColors(LPWSTR pszThemeFileName, LPWSTR pszSizeName,
-                               DWORD dwColorNum, PTHEMENAMES pszColorNames)
+HRESULT WINAPI EnumThemeColors(LPWSTR filename, LPWSTR size, DWORD color_id, PTHEMENAMES colors)
 {
-    TRACE("(%s,%s,%d)\n", debugstr_w(pszThemeFileName),
-          debugstr_w(pszSizeName), dwColorNum);
+    TRACE("(%s, %s, %d, %p)\n", debugstr_w(filename), debugstr_w(size), color_id, colors);
 
-    if (!is_fake_theme(pszThemeFileName))
+    if (!is_fake_theme(filename))
         return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
 
-    if (pszSizeName && lstrcmpW(FAKE_SIZE, pszSizeName))
+    if (size != NULL && lstrcmpW(FAKE_SIZE, size) != 0)
         return E_PROP_ID_UNSUPPORTED;
 
-    if (dwColorNum)
+    if (color_id != 0)
         return E_PROP_ID_UNSUPPORTED;
 
-    lstrcpynW(pszColorNames->szName, FAKE_COLOR,
-              sizeof (pszColorNames->szName) / sizeof (WCHAR));
-    lstrcpynW(pszColorNames->szDisplayName, FAKE_COLOR,
-              sizeof (pszColorNames->szDisplayName) / sizeof (WCHAR));
-    lstrcpynW(pszColorNames->szTooltip, FAKE_COLOR,
-              sizeof (pszColorNames->szTooltip) / sizeof (WCHAR));
+    lstrcpynW(colors->szName, FAKE_COLOR, sizeof(colors->szName) / sizeof(WCHAR));
+    lstrcpynW(colors->szDisplayName, FAKE_COLOR, sizeof(colors->szDisplayName) / sizeof(WCHAR));
+    lstrcpynW(colors->szTooltip, FAKE_COLOR, sizeof(colors->szTooltip) / sizeof(WCHAR));
 
     return S_OK;
 }
 
-HRESULT WINAPI EnumThemeSizes(LPWSTR pszThemeFileName, LPWSTR pszColorName,
-                              DWORD dwSizeNum, PTHEMENAMES pszSizeNames)
+HRESULT WINAPI EnumThemeSizes(LPWSTR filename, LPWSTR color, DWORD size_id, PTHEMENAMES sizes)
 {
-    TRACE("(%s,%s,%d)\n", debugstr_w(pszThemeFileName),
-          debugstr_w(pszColorName), dwSizeNum);
+    TRACE("(%s, %s, %d, %p)\n", debugstr_w(filename), debugstr_w(color), size_id, sizes);
 
-    if (!is_fake_theme(pszThemeFileName))
+    if (!is_fake_theme(filename))
         return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
 
-    if (pszColorName && lstrcmpW(FAKE_COLOR, pszColorName))
+    if (color != NULL && lstrcmpW(FAKE_COLOR, color) != 0)
         return E_PROP_ID_UNSUPPORTED;
 
-    if (dwSizeNum)
+    if (size_id != 0)
         return E_PROP_ID_UNSUPPORTED;
 
-    lstrcpynW(pszSizeNames->szName, FAKE_SIZE,
-              sizeof (pszSizeNames->szName) / sizeof (WCHAR));
-    lstrcpynW(pszSizeNames->szDisplayName, FAKE_SIZE,
-              sizeof (pszSizeNames->szDisplayName) / sizeof (WCHAR));
-    lstrcpynW(pszSizeNames->szTooltip, FAKE_SIZE,
-              sizeof (pszSizeNames->szTooltip) / sizeof (WCHAR));
+    lstrcpynW(sizes->szName, FAKE_SIZE, sizeof(sizes->szName) / sizeof(WCHAR));
+    lstrcpynW(sizes->szDisplayName, FAKE_SIZE, sizeof(sizes->szDisplayName) / sizeof(WCHAR));
+    lstrcpynW(sizes->szTooltip, FAKE_SIZE, sizeof(sizes->szTooltip) / sizeof(WCHAR));
 
     return S_OK;
 }
 
-HRESULT WINAPI ParseThemeIniFile(LPCWSTR pszIniFileName, LPWSTR pszUnknown,
-                                 ParseThemeIniFileProc callback, LPVOID lpData)
+HRESULT WINAPI ParseThemeIniFile(LPCWSTR filename, LPWSTR unknown,
+                                 ParseThemeIniFileProc callback, LPVOID data)
 {
-    FIXME("%s %s: stub\n", debugstr_w(pszIniFileName), debugstr_w(pszUnknown));
-    return ERROR_CALL_NOT_IMPLEMENTED;
+    TRACE("(%s, %s, %p, %p)\n", debugstr_w(filename), debugstr_w(unknown), callback, data);
+
+    return E_NOTIMPL;
 }
 
-HRESULT WINAPI CheckThemeSignature(LPCWSTR pszThemeFileName)
+HRESULT WINAPI CheckThemeSignature(LPCWSTR filename)
 {
-    if (!is_fake_theme(pszThemeFileName))
+    if (!is_fake_theme(filename))
         return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
 
     return S_OK;

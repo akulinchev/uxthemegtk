@@ -18,14 +18,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "uxthemegtk_internal.h"
+#include "uxthemegtk.h"
 
 #include <stdlib.h>
 
-#include <vsstyle.h>
-#include <vssym32.h>
-#include <winerror.h>
-#include <wine/debug.h>
+#include "vsstyle.h"
+#include "vssym32.h"
+#include "winerror.h"
+
+#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
@@ -51,21 +52,62 @@ static const uxgtk_theme_vtable_t window_vtable = {
     destroy
 };
 
+static HRESULT get_fill_color(window_theme_t *theme, int part_id, int state_id, GdkRGBA *rgba)
+{
+    GtkStateFlags state;
+    GtkStyleContext *context;
+
+    switch (part_id)
+    {
+        case WP_DIALOG:
+            state = GTK_STATE_FLAG_NORMAL;
+            context = pgtk_widget_get_style_context(theme->window);
+            break;
+
+        default:
+            FIXME("Unsupported window part %d.\n", part_id);
+            return E_NOTIMPL;
+    }
+
+    pgtk_style_context_get_background_color(context, state, rgba);
+
+    return S_OK;
+}
+
+static HRESULT get_text_color(window_theme_t *theme, int part_id, int state_id, GdkRGBA *rgba)
+{
+    GtkStateFlags state;
+    GtkStyleContext *context;
+
+    switch (part_id)
+    {
+        case WP_DIALOG:
+            state = GTK_STATE_FLAG_NORMAL;
+            context = pgtk_widget_get_style_context(theme->window);
+            break;
+
+        default:
+            FIXME("Unsupported window part %d.\n", part_id);
+            return E_NOTIMPL;
+    }
+
+    pgtk_style_context_get_color(context, state, rgba);
+
+    return S_OK;
+}
+
 static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
                          int prop_id, GdkRGBA *rgba)
 {
     window_theme_t *window_theme = (window_theme_t *)theme;
-    GtkStyleContext *context = pgtk_widget_get_style_context(window_theme->window);
 
     switch (prop_id)
     {
         case TMT_FILLCOLOR:
-            pgtk_style_context_get_background_color(context, GTK_STATE_FLAG_NORMAL, rgba);
-            break;
+            return get_fill_color(window_theme, part_id, state_id, rgba);
 
         case TMT_TEXTCOLOR:
-            pgtk_style_context_get_color(context, GTK_STATE_FLAG_NORMAL, rgba);
-            break;
+            return get_text_color(window_theme, part_id, state_id, rgba);
 
         default:
             FIXME("Unsupported property %d.\n", prop_id);
@@ -75,16 +117,26 @@ static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
     return S_OK;
 }
 
+static void draw_dialog(window_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
+{
+    GtkStyleContext *context = pgtk_widget_get_style_context(theme->window);
+
+    pgtk_render_background(context, cr, 0, 0, width, height);
+}
+
 static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
                             int width, int height)
 {
     window_theme_t *window_theme = (window_theme_t *)theme;
-    GtkStyleContext *context = pgtk_widget_get_style_context(window_theme->window);
 
-    if (part_id == WP_DIALOG)
-        pgtk_render_background(context, cr, 0, 0, width, height);
-    else
-        FIXME("Unsupported window part %d.\n", part_id);
+    switch (part_id)
+    {
+        case WP_DIALOG:
+            draw_dialog(window_theme, cr, state_id, width, height);
+            return;
+    }
+
+    FIXME("Unsupported window part %d.\n", part_id);
 }
 
 static BOOL is_part_defined(int part_id, int state_id)

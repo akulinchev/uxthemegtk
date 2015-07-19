@@ -18,12 +18,13 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "uxthemegtk_internal.h"
+#include "uxthemegtk.h"
 
 #include <stdlib.h>
 
-#include <vsstyle.h>
-#include <wine/debug.h>
+#include "vsstyle.h"
+
+#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
@@ -97,8 +98,6 @@ static void draw_tab_pane(tab_theme_t *theme, cairo_t *cr, int width, int height
     pgtk_style_context_save(context);
 
     pgtk_style_context_add_class(context, GTK_STYLE_CLASS_FRAME);
-
-    /* Make the top corners square */
     pgtk_style_context_set_junction_sides(context, GTK_JUNCTION_TOP);
 
     pgtk_render_background(context, cr, 0, 0, width, height);
@@ -136,26 +135,24 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
         case TABP_TOPTABITEMRIGHTEDGE:
         case TABP_TOPTABITEMBOTHEDGE:
             draw_tab_item(tab_theme, cr, part_id, state_id, width, height);
-            break;
+            return;
 
         case TABP_PANE:
             draw_tab_pane(tab_theme, cr, width, height);
-            break;
+            return;
 
         case TABP_BODY:
+        case TABP_AEROWIZARDBODY:
             draw_tab_body(tab_theme, cr, width, height);
-            break;
-
-        default:
-            FIXME("Unsupported tab part %d.\n", part_id);
-            break;
+            return;
     }
+
+    ERR("Unknown tab part %d.\n", part_id);
 }
 
 static BOOL is_part_defined(int part_id, int state_id)
 {
-    /* TABP_AEROWIZARDBODY is not used by comctl32.dll */
-    return (part_id > 0 && part_id < TABP_AEROWIZARDBODY);
+    return (part_id > 0 && part_id <= TABP_AEROWIZARDBODY);
 }
 
 static void destroy(uxgtk_theme_t *theme)

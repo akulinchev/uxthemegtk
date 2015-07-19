@@ -18,13 +18,14 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "uxthemegtk_internal.h"
+#include "uxthemegtk.h"
 
 #include <stdlib.h>
 
-#include <vsstyle.h>
-#include <winerror.h>
-#include <wine/debug.h>
+#include "vsstyle.h"
+#include "winerror.h"
+
+#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
@@ -56,6 +57,7 @@ static const uxgtk_theme_vtable_t status_vtable = {
 static void draw_pane(status_theme_t *theme, cairo_t *cr, int width, int height)
 {
     GtkStyleContext *context = pgtk_widget_get_style_context(theme->window);
+
     pgtk_style_context_add_class(context, GTK_STYLE_CLASS_BACKGROUND);
     pgtk_render_background(context, cr, 0, 0, width, height);
 }
@@ -85,16 +87,14 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
         case SP_PANE:
         case SP_GRIPPERPANE:
             draw_pane(status_theme, cr, width, height);
-            break;
+            return;
 
         case SP_GRIPPER:
             draw_gripper(status_theme, cr, width, height);
-            break;
-
-        default:
-            FIXME("Unknown status part %d.\n", part_id);
-            break;
+            return;
     }
+
+    ERR("Unknown status part %d.\n", part_id);
 }
 
 static HRESULT get_part_size(uxgtk_theme_t *theme, int part_id, int state_id,
@@ -102,18 +102,20 @@ static HRESULT get_part_size(uxgtk_theme_t *theme, int part_id, int state_id,
 {
     status_theme_t *status_theme = (status_theme_t *)theme;
 
-    if (part_id != SP_GRIPPER)
-        return E_FAIL;
+    switch (part_id)
+    {
+        case SP_GRIPPER:
+            size->cx = status_theme->grip_width;
+            size->cy = status_theme->grip_height;
+            return S_OK;
+    }
 
-    size->cx = status_theme->grip_width;
-    size->cy = status_theme->grip_height;
-
-    return S_OK;
+    FIXME("Unsupported status part %d.\n", part_id);
+    return E_NOTIMPL;
 }
 
 static BOOL is_part_defined(int part_id, int state_id)
 {
-    /* comctl32.dll thinks SP_PANE == 0 */
     return (part_id >= 0 && part_id <= SP_GRIPPER);
 }
 

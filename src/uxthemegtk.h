@@ -18,10 +18,11 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#ifndef UXTHEMEGTK_INTERNAL_H
-#define UXTHEMEGTK_INTERNAL_H
+#ifndef UXTHEMEGTK_H
+#define UXTHEMEGTK_H
 
-#include <windef.h>
+#include "windef.h"
+
 #include <gtk/gtk.h>
 
 typedef struct _uxgtk_theme uxgtk_theme_t;
@@ -53,12 +54,8 @@ typedef struct tagTHEMENAMES
     WCHAR szTooltip[MAX_PATH+1];
 } THEMENAMES, *PTHEMENAMES;
 
-typedef BOOL (CALLBACK *EnumThemeProc)(LPVOID lpReserved, LPCWSTR pszThemeFileName,
-                                       LPCWSTR pszThemeName, LPCWSTR pszToolTip, LPVOID lpReserved2,
-                                       LPVOID lpData);
-typedef BOOL (CALLBACK*ParseThemeIniFileProc)(DWORD dwType, LPWSTR pszParam1,
-                                              LPWSTR pszParam2, LPWSTR pszParam3,
-                                              DWORD dwParam, LPVOID lpData);
+typedef BOOL (CALLBACK *EnumThemeProc)(LPVOID, LPCWSTR, LPCWSTR, LPCWSTR, LPVOID, LPVOID);
+typedef BOOL (CALLBACK *ParseThemeIniFileProc)(DWORD, LPWSTR, LPWSTR, LPWSTR, DWORD, LPVOID);
 
 #define MAKE_FUNCPTR(f) extern typeof(f) * p##f DECLSPEC_HIDDEN
 MAKE_FUNCPTR(cairo_create);
@@ -136,4 +133,4 @@ uxgtk_theme_t *uxgtk_toolbar_theme_create(void);
 uxgtk_theme_t *uxgtk_trackbar_theme_create(void);
 uxgtk_theme_t *uxgtk_window_theme_create(void);
 
-#endif /* UXTHEMEGTK_INTERNAL_H */
+#endif /* UXTHEMEGTK_H */

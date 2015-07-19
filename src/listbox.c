@@ -18,12 +18,13 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "uxthemegtk_internal.h"
+#include "uxthemegtk.h"
 
 #include <stdlib.h>
 
-#include <vsstyle.h>
-#include <wine/debug.h>
+#include "vsstyle.h"
+
+#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
@@ -75,17 +76,14 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
         case LBCP_BORDER_NOSCROLL:
         case LBCP_BORDER_VSCROLL:
             draw_border(listbox_theme, cr, width, height);
-            break;
-
-        default:
-            FIXME("Unsupported listbox part %d.\n", part_id);
-            break;
+            return;
     }
+
+    FIXME("Unsupported listbox part %d.\n", part_id);
 }
 
 static BOOL is_part_defined(int part_id, int state_id)
 {
-    /* >= 0 because comctl32.dll always sends 0. LBCP_ITEM is not used. */
     return (part_id >= 0 && part_id < LBCP_ITEM);
 }
 

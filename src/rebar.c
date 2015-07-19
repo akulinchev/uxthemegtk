@@ -18,12 +18,13 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "uxthemegtk_internal.h"
+#include "uxthemegtk.h"
 
 #include <stdlib.h>
 
-#include <vsstyle.h>
-#include <wine/debug.h>
+#include "vsstyle.h"
+
+#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
@@ -53,18 +54,23 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
 {
     rebar_theme_t *rebar_theme = (rebar_theme_t *)theme;
 
-    if (part_id)
-        FIXME("Unsupported rebar part %d.\n", part_id);
-    else
+    switch (part_id)
     {
-        GtkStyleContext *context = pgtk_widget_get_style_context(rebar_theme->toolbar);
-        pgtk_render_background(context, cr, 0, 0, width, height);
+        case 0:
+        case RP_BACKGROUND:
+        {
+            GtkStyleContext *context = pgtk_widget_get_style_context(rebar_theme->toolbar);
+            pgtk_render_background(context, cr, 0, 0, width, height);
+            return;
+        }
     }
+
+    FIXME("Unsupported rebar part %d.\n", part_id);
 }
 
 static BOOL is_part_defined(int part_id, int state_id)
 {
-    return !part_id;
+    return (part_id == 0 || part_id == RP_BACKGROUND);
 }
 
 static void destroy(uxgtk_theme_t *theme)

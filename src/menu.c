@@ -18,14 +18,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "uxthemegtk_internal.h"
+#include "uxthemegtk.h"
 
 #include <stdlib.h>
 
-#include <vsstyle.h>
-#include <vssym32.h>
-#include <winerror.h>
-#include <wine/debug.h>
+#include "vsstyle.h"
+#include "vssym32.h"
+#include "winerror.h"
+
+#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
@@ -51,7 +52,7 @@ static const uxgtk_theme_vtable_t menu_vtable = {
     destroy
 };
 
-static inline GtkStateFlags get_popup_item_state_flags(int state_id)
+static GtkStateFlags get_popup_item_state_flags(int state_id)
 {
     switch (state_id)
     {
@@ -64,79 +65,94 @@ static inline GtkStateFlags get_popup_item_state_flags(int state_id)
         case MPI_DISABLED:
             return GTK_STATE_FLAG_INSENSITIVE;
 
-        case MPI_DISABLEDHOT: /* WAT??? */
+        case MPI_DISABLEDHOT:
             return GTK_STATE_FLAG_INSENSITIVE | GTK_STATE_FLAG_PRELIGHT;
-
-        default:
-            FIXME("Unknown popup item state %d.\n", state_id);
-            break;
     }
 
+    ERR("Unknown menu popup item state %d.\n", state_id);
     return GTK_STATE_FLAG_NORMAL;
 }
 
-static inline GtkStateFlags get_state_flags(int part_id, int state_id)
+static HRESULT get_fill_color(menu_theme_t *theme, int part_id, int state_id, GdkRGBA *rgba)
 {
+    GtkStateFlags state;
+    GtkStyleContext *context;
+
     switch (part_id)
     {
         case MENU_BARBACKGROUND:
-        case MENU_POPUPBACKGROUND:
-            return GTK_STATE_FLAG_NORMAL;
-
-        case MENU_POPUPITEM:
-            return get_popup_item_state_flags(state_id);
-
-        default:
-            FIXME("Unknown menu part %d.\n", part_id);
+            state = GTK_STATE_FLAG_NORMAL;
+            context = pgtk_widget_get_style_context(theme->menubar);
             break;
-    }
-
-    return GTK_STATE_FLAG_NORMAL;
-}
-
-static inline GtkStyleContext *get_style_context(menu_theme_t *theme, int part_id)
-{
-    switch (part_id)
-    {
-        case MENU_BARBACKGROUND:
-            return pgtk_widget_get_style_context(theme->menubar);
 
         case MENU_POPUPBACKGROUND:
-            return pgtk_widget_get_style_context(theme->menu);
+            state = GTK_STATE_FLAG_NORMAL;
+            context = pgtk_widget_get_style_context(theme->menu);
+            break;
 
         case MENU_POPUPITEM:
-            return pgtk_widget_get_style_context(theme->menuitem);
+            state = get_popup_item_state_flags(state_id);
+            context = pgtk_widget_get_style_context(theme->menuitem);
+            break;
 
         default:
             FIXME("Unsupported menu part %d.\n", part_id);
-            break;
+            return E_NOTIMPL;
     }
 
-    return pgtk_widget_get_style_context(theme->menubar);
+    pgtk_style_context_get_background_color(context, state, rgba);
+
+    return S_OK;
+}
+
+static HRESULT get_text_color(menu_theme_t *theme, int part_id, int state_id, GdkRGBA *rgba)
+{
+    GtkStateFlags state;
+    GtkStyleContext *context;
+
+    switch (part_id)
+    {
+        case MENU_BARBACKGROUND:
+            state = GTK_STATE_FLAG_NORMAL;
+            context = pgtk_widget_get_style_context(theme->menubar);
+            break;
+
+        case MENU_POPUPBACKGROUND:
+            state = GTK_STATE_FLAG_NORMAL;
+            context = pgtk_widget_get_style_context(theme->menu);
+            break;
+
+        case MENU_POPUPITEM:
+            state = get_popup_item_state_flags(state_id);
+            context = pgtk_widget_get_style_context(theme->menuitem);
+            break;
+
+        default:
+            FIXME("Unsupported menu part %d.\n", part_id);
+            return E_NOTIMPL;
+    }
+
+    pgtk_style_context_get_color(context, state, rgba);
+
+    return S_OK;
 }
 
 static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
                          int prop_id, GdkRGBA *rgba)
 {
-    GtkStyleContext *context = get_style_context((menu_theme_t *)theme, part_id);
-    GtkStateFlags state = get_state_flags(part_id, state_id);
+    menu_theme_t *menu_theme = (menu_theme_t *)theme;
 
     switch (prop_id)
     {
         case TMT_FILLCOLOR:
-            pgtk_style_context_get_background_color(context, state, rgba);
-            break;
+            return get_fill_color(menu_theme, part_id, state_id, rgba);
 
         case TMT_TEXTCOLOR:
-            pgtk_style_context_get_color(context, state, rgba);
-            break;
-
-        default:
-            FIXME("Unsupported property %d.\n", prop_id);
-            return E_FAIL;
+            return get_text_color(menu_theme, part_id, state_id, rgba);
     }
 
-    return S_OK;
+    FIXME("Unsupported menu color %d.\n", prop_id);
+    return E_NOTIMPL;
 }
 
 static void destroy(uxgtk_theme_t *theme)

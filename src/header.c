@@ -18,12 +18,13 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "uxthemegtk_internal.h"
+#include "uxthemegtk.h"
 
 #include <stdlib.h>
 
-#include <vsstyle.h>
-#include <wine/debug.h>
+#include "vsstyle.h"
+
+#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
@@ -47,8 +48,7 @@ static const uxgtk_theme_vtable_t header_vtable = {
     destroy
 };
 
-static void draw_header_item(header_theme_t *theme, cairo_t *cr, int state_id,
-                             int width, int height)
+static void draw_item(header_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
     GtkWidget *widget = pgtk_tree_view_column_get_button(
         pgtk_tree_view_get_column((GtkTreeView*)theme->treeview, 1));
@@ -75,15 +75,18 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
 {
     header_theme_t *header_theme = (header_theme_t *)theme;
 
-    if (part_id == HP_HEADERITEM)
-        draw_header_item(header_theme, cr, state_id, width, height);
-    else
-        FIXME("Unsupported header part %d.\n", part_id);
+    switch (part_id)
+    {
+        case HP_HEADERITEM:
+            draw_item(header_theme, cr, state_id, width, height);
+            return;
+    }
+
+    FIXME("Unsupported header part %d.\n", part_id);
 }
 
 static BOOL is_part_defined(int part_id, int state_id)
 {
-    /* comctl32.dll uses only HP_HEADERITEM */
     return (part_id == HP_HEADERITEM);
 }
 

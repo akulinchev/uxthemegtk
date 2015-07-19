@@ -18,12 +18,13 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "uxthemegtk_internal.h"
+#include "uxthemegtk.h"
 
 #include <stdlib.h>
 
-#include <vsstyle.h>
-#include <wine/debug.h>
+#include "vsstyle.h"
+
+#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
@@ -53,7 +54,7 @@ static const uxgtk_theme_vtable_t combobox_vtable = {
     destroy
 };
 
-static inline GtkStateFlags get_border_state_flags(int state_id)
+static GtkStateFlags get_border_state_flags(int state_id)
 {
     switch (state_id)
     {
@@ -68,16 +69,13 @@ static inline GtkStateFlags get_border_state_flags(int state_id)
 
         case CBB_DISABLED:
             return GTK_STATE_FLAG_INSENSITIVE;
-
-        default:
-            FIXME("Unknown edit text state %d.\n", state_id);
-            break;
     }
 
+    ERR("Unknown combobox border state %d.\n", state_id);
     return GTK_STATE_FLAG_NORMAL;
 }
 
-static inline GtkStateFlags get_dropdown_button_state_flags(int state_id)
+static GtkStateFlags get_dropdown_button_state_flags(int state_id)
 {
     switch (state_id)
     {
@@ -92,12 +90,9 @@ static inline GtkStateFlags get_dropdown_button_state_flags(int state_id)
 
         case CBXS_DISABLED:
             return GTK_STATE_FLAG_INSENSITIVE;
-
-        default:
-            ERR("Unknown combobox dropdown button state %d.\n", state_id);
-            break;
     }
 
+    ERR("Unknown combobox dropdown button state %d.\n", state_id);
     return GTK_STATE_FLAG_NORMAL;
 }
 
@@ -122,21 +117,29 @@ static void draw_border(combobox_theme_t *theme, cairo_t *cr, int state_id, int 
     pgtk_style_context_restore(context);
 }
 
-static void draw_dropdown_button(combobox_theme_t *theme, cairo_t *cr, int state_id,
-                                 int width, int height)
+static void draw_button(combobox_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                        int width, int height)
 {
     int arrow_x, arrow_y, arrow_width;
     GtkStateFlags state = get_dropdown_button_state_flags(state_id);
-    GtkStyleContext *button_context = pgtk_widget_get_style_context(theme->button);
     GtkStyleContext *arrow_context = pgtk_widget_get_style_context(theme->arrow);
+    GtkStyleContext *button_context = pgtk_widget_get_style_context(theme->button);
 
     pgtk_style_context_save(button_context);
 
     pgtk_style_context_set_state(button_context, state);
 
-    /* Render it with another size to remove a gap */
-    pgtk_render_background(button_context, cr, 0, -2, width + 2, height + 4);
-    pgtk_render_frame(button_context, cr, 0, -2, width + 2, height + 4);
+    /* Render with another size to remove a gap */
+    if (part_id == CP_DROPDOWNBUTTONLEFT)
+    {
+        pgtk_render_background(button_context, cr, -2, -2, width + 2, height + 4);
+        pgtk_render_frame(button_context, cr, -2, -2, width + 2, height + 4);
+    }
+    else
+    {
+        pgtk_render_background(button_context, cr, 0, -2, width + 2, height + 4);
+        pgtk_render_frame(button_context, cr, 0, -2, width + 2, height + 4);
+    }
 
     pgtk_style_context_restore(button_context);
 
@@ -164,21 +167,22 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
         case 0:
         case CP_BORDER:
             draw_border(combobox_theme, cr, state_id, width, height);
-            break;
+            return;
 
         case CP_DROPDOWNBUTTON:
-            draw_dropdown_button(combobox_theme, cr, state_id, width, height);
-            break;
-
-        default:
-            FIXME("Unsupported combobox part %d.\n", part_id);
-            break;
+        case CP_DROPDOWNBUTTONLEFT:
+        case CP_DROPDOWNBUTTONRIGHT:
+            draw_button(combobox_theme, cr, part_id, state_id, width, height);
+            return;
     }
+
+    FIXME("Unsupported combobox part %d.\n", part_id);
 }
 
 static BOOL is_part_defined(int part_id, int state_id)
 {
-    return (part_id == 0 || part_id == CP_DROPDOWNBUTTON);
+    return (part_id == 0 || part_id == CP_BORDER || part_id == CP_DROPDOWNBUTTON ||
+            part_id == CP_DROPDOWNBUTTONLEFT || part_id == CP_DROPDOWNBUTTONRIGHT);
 }
 
 static void destroy(uxgtk_theme_t *theme)

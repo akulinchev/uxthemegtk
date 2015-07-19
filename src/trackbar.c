@@ -18,12 +18,13 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "uxthemegtk_internal.h"
+#include "uxthemegtk.h"
 
 #include <stdlib.h>
 
-#include <vsstyle.h>
-#include <wine/debug.h>
+#include "vsstyle.h"
+
+#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
@@ -124,17 +125,15 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
         case TKP_THUMBLEFT:
         case TKP_THUMBRIGHT:
             draw_thumb(trackbar_theme, cr, state_id, width, height);
-            break;
+            return;
 
         case TKP_TRACK:
         case TKP_TRACKVERT:
             draw_track(trackbar_theme, cr, part_id, width, height);
-            break;
-
-        default:
-            FIXME("Unsupported trackbar part %d.\n", part_id);
-            break;
+            return;
     }
+
+    FIXME("Unsupported trackbar part %d.\n", part_id);
 }
 
 static BOOL is_part_defined(int part_id, int state_id)

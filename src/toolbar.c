@@ -18,12 +18,13 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "uxthemegtk_internal.h"
+#include "uxthemegtk.h"
 
 #include <stdlib.h>
 
-#include <vsstyle.h>
-#include <wine/debug.h>
+#include "vsstyle.h"
+
+#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(uxthemegtk);
 
@@ -48,7 +49,7 @@ static const uxgtk_theme_vtable_t toolbar_vtable = {
     destroy
 };
 
-static inline GtkStateFlags get_state_flags(int state_id)
+static GtkStateFlags get_state_flags(int state_id)
 {
     switch (state_id)
     {
@@ -63,12 +64,9 @@ static inline GtkStateFlags get_state_flags(int state_id)
 
         case TS_DISABLED:
             return GTK_STATE_FLAG_INSENSITIVE;
-
-        default:
-            FIXME("Unsupported toolbar state %d.\n", state_id);
-            break;
     }
 
+    FIXME("Unsupported toolbar state %d.\n", state_id);
     return GTK_STATE_FLAG_NORMAL;
 }
 
@@ -117,17 +115,15 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
     {
         case TP_BUTTON:
             draw_button(toolbar_theme, cr, state_id, width, height);
-            break;
+            return;
 
         case TP_SEPARATOR:
         case TP_SEPARATORVERT:
             draw_separator(toolbar_theme, cr, part_id, width, height);
-            break;
-
-        default:
-            FIXME("Unknown toolbar part %d.\n", part_id);
-            break;
+            return;
     }
+
+    FIXME("Unsupported toolbar part %d.\n", part_id);
 }
 
 static BOOL is_part_defined(int part_id, int state_id)
