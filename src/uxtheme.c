@@ -299,7 +299,7 @@ error:
 
 #undef LOAD_FUNCPTR
 
-static BOOL init(void)
+static void init(void)
 {
     static const WCHAR themes_subdir[] = { '\\','T','h','e','m','e','s',0 };
     static const WCHAR style_folder[] = {'\\', 'g','t','k', 0};
@@ -308,7 +308,7 @@ static BOOL init(void)
     HANDLE file;
 
     if (!load_gtk3_libs())
-        return FALSE;
+        return;
 
     pgtk_init(0, NULL); /* Otherwise every call to GTK will fail */
 
@@ -319,7 +319,7 @@ static BOOL init(void)
         SHGFP_TYPE_CURRENT, fake_msstyles_file)))
     {
         fake_msstyles_file[0] = 0;
-        return TRUE;
+        return;
     }
 
     lstrcatW(fake_msstyles_file, themes_subdir);
@@ -334,8 +334,6 @@ static BOOL init(void)
 
     if (file != INVALID_HANDLE_VALUE)
         CloseHandle(file);
-
-    return TRUE;
 }
 
 static void uninit(void)
@@ -476,6 +474,9 @@ HRESULT WINAPI CloseThemeData(HTHEME htheme)
 
     TRACE("(%p)\n", htheme);
 
+    if (libgtk3 == NULL)
+        return E_NOTIMPL;
+
     if (theme == NULL)
         return E_HANDLE;
 
@@ -492,6 +493,9 @@ HRESULT WINAPI EnableThemeDialogTexture(HWND hwnd, DWORD flags)
     HTHEME htheme;
 
     TRACE("(%p, %u)\n", hwnd, flags);
+
+    if (libgtk3 == NULL)
+        return E_NOTIMPL;
 
     if (flags & ETDT_USETABTEXTURE)
     {
@@ -547,14 +551,17 @@ BOOL WINAPI IsAppThemed(void)
 {
     TRACE("()\n");
 
-    return TRUE; /* Always themed */
+    return IsThemeActive();
 }
 
 BOOL WINAPI IsThemeActive(void)
 {
     TRACE("()\n");
 
-    return TRUE; /* Always active */
+    if (libgtk3 == NULL)
+        return FALSE;
+
+    return TRUE;
 }
 
 BOOL WINAPI IsThemeDialogTextureEnabled(HWND hwnd)
@@ -569,6 +576,12 @@ HTHEME WINAPI OpenThemeData(HWND hwnd, LPCWSTR classlist)
     int i;
 
     TRACE("(%p, %s)\n", hwnd, debugstr_w(classlist));
+
+    if (libgtk3 == NULL)
+    {
+        SetLastError(ERROR_NOT_SUPPORTED);
+        return NULL;
+    }
 
     /* comctl32.dll likes to send NULL */
     if (classlist == NULL)
@@ -628,6 +641,9 @@ HRESULT WINAPI GetThemeColor(HTHEME htheme, int part_id, int state_id,
     uxgtk_theme_t *theme = (uxgtk_theme_t *)htheme;
 
     TRACE("(%p, %d, %d, %d, %p)\n", htheme, part_id, state_id, prop_id, color);
+
+    if (libgtk3 == NULL)
+        return E_NOTIMPL;
 
     if (theme == NULL || theme->vtable == NULL)
         return E_HANDLE;
@@ -772,6 +788,9 @@ COLORREF WINAPI GetThemeSysColor(HTHEME htheme, int color_id)
     static HTHEME menu_htheme = NULL;
 
     TRACE("(%p, %d)\n", htheme, color_id);
+
+    if (libgtk3 == NULL)
+        return GetSysColor(color_id);
 
     if (window_htheme == NULL)
     {
@@ -921,6 +940,9 @@ HRESULT WINAPI DrawThemeBackgroundEx(HTHEME htheme, HDC hdc, int part_id, int st
     uxgtk_theme_t *theme = (uxgtk_theme_t *)htheme;
 
     TRACE("(%p, %p, %d, %d, %p, %p)\n", htheme, hdc, part_id, state_id, rect, options);
+
+    if (libgtk3 == NULL)
+        return E_NOTIMPL;
 
     if (theme == NULL || theme->vtable == NULL)
         return E_HANDLE;
@@ -1083,6 +1105,9 @@ HRESULT WINAPI GetThemePartSize(HTHEME htheme, HDC hdc, int part_id, int state_i
 
     TRACE("(%p, %p, %d, %d, %p, %d, %p)\n", htheme, hdc, part_id, state_id, rect, type, size);
 
+    if (libgtk3 == NULL)
+        return E_NOTIMPL;
+
     if (theme == NULL || theme->vtable == NULL)
         return E_HANDLE;
 
@@ -1138,6 +1163,12 @@ BOOL WINAPI IsThemePartDefined(HTHEME htheme, int part_id, int state_id)
     uxgtk_theme_t *theme = (uxgtk_theme_t *)htheme;
 
     TRACE("(%p, %d, %d)\n", htheme, part_id, state_id);
+
+    if (libgtk3 == NULL)
+    {
+        SetLastError(ERROR_NOT_SUPPORTED);
+        return FALSE;
+    }
 
     if (theme == NULL || theme->vtable == NULL)
     {
@@ -1280,7 +1311,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstance, DWORD reason, LPVOID reserved)
     switch (reason)
     {
         case DLL_PROCESS_ATTACH:
-            return init();
+            init();
+            return TRUE;
 
         case DLL_PROCESS_DETACH:
             uninit();
