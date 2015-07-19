@@ -27,12 +27,18 @@ SOURCES = $(shell echo src/*.c)
 OBJECTS = $(SOURCES:.c=.o)
 LIBSPEC = src/uxthemegtk.spec
 
-.PHONY: all clean
+.PHONY: all patches clean
 
 all: $(TARGET)
 
 $(TARGET): $(OBJECTS)
 	$(CC) $(CFLAGS) $(OBJECTS) -o $@ $(LDFLAGS) $(LIBSPEC)
 
+patches:
+	git format-patch --root -o patches src
+	sed -i 's/src\//dlls\/uxthemegtk\//g' patches/*
+	sed -i 's/\[PATCH.*\]/uxthemegtk:/g' patches/*
+
 clean:
 	$(RM) $(TARGET) $(OBJECTS)
+	$(RM) -r patches
