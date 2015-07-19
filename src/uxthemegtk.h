@@ -32,8 +32,8 @@ struct _uxgtk_theme_vtable
 {
     HRESULT (*get_color)(uxgtk_theme_t *theme, int part_id, int state_id,
                          int prop_id, GdkRGBA *rgba);
-    void (*draw_background)(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height);
+    HRESULT (*draw_background)(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                              int width, int height);
     HRESULT (*get_part_size)(uxgtk_theme_t *theme, int part_id, int state_id,
                              RECT *rect, SIZE *size);
     BOOL (*is_part_defined)(int part_id, int state_id);

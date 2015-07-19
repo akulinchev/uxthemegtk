@@ -49,8 +49,8 @@ typedef struct _button_theme
 
 static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
                          int prop_id, GdkRGBA *rgba);
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height);
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height);
 static HRESULT get_part_size(uxgtk_theme_t *theme, int part_id, int state_id,
                              RECT *rect, SIZE *size);
 static BOOL is_part_defined(int part_id, int state_id);
@@ -369,7 +369,7 @@ static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
     return E_NOTIMPL;
 }
 
-static void draw_button(button_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
+static HRESULT draw_button(button_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
     GtkStateFlags state = get_push_button_state_flags(state_id);
     GtkStyleContext *context = pgtk_widget_get_style_context(get_button(theme));
@@ -385,9 +385,11 @@ static void draw_button(button_theme_t *theme, cairo_t *cr, int state_id, int wi
     pgtk_render_frame(context, cr, 0, 0, width, height);
 
     pgtk_style_context_restore(context);
+
+    return S_OK;
 }
 
-static void draw_radio(button_theme_t *theme, cairo_t *cr, int state_id)
+static HRESULT draw_radio(button_theme_t *theme, cairo_t *cr, int state_id)
 {
     GtkStateFlags state = get_radio_button_state_flags(state_id);
     GtkStyleContext *context = pgtk_widget_get_style_context(get_radio(theme));
@@ -402,9 +404,11 @@ static void draw_radio(button_theme_t *theme, cairo_t *cr, int state_id)
     pgtk_render_option(context, cr, 0, 0, theme->indicator_size, theme->indicator_size);
 
     pgtk_style_context_restore(context);
+
+    return S_OK;
 }
 
-static void draw_checkbox(button_theme_t *theme, cairo_t *cr, int state_id)
+static HRESULT draw_checkbox(button_theme_t *theme, cairo_t *cr, int state_id)
 {
     GtkStyleContext *context;
     GtkStateFlags state = get_checkbox_state_flags(state_id);
@@ -421,32 +425,34 @@ static void draw_checkbox(button_theme_t *theme, cairo_t *cr, int state_id)
     pgtk_render_check(context, cr, 0, 0, theme->indicator_size, theme->indicator_size);
 
     pgtk_style_context_restore(context);
+
+    return S_OK;
 }
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height)
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height)
 {
     button_theme_t *button_theme = (button_theme_t *)theme;
 
     switch (part_id)
     {
         case BP_PUSHBUTTON:
-            draw_button(button_theme, cr, state_id, width, height);
-            return;
+            return draw_button(button_theme, cr, state_id, width, height);
 
         case BP_RADIOBUTTON:
-            draw_radio(button_theme, cr, state_id);
-            return;
+            return draw_radio(button_theme, cr, state_id);
 
         case BP_CHECKBOX:
-            draw_checkbox(button_theme, cr, state_id);
-            return;
+            return draw_checkbox(button_theme, cr, state_id);
 
         case BP_GROUPBOX:
-            return; /* GNOME applications don't draw a group box */
+            /* GNOME applications don't draw a group box. Return some error code
+             * to avoid useless painting operations. */
+            return E_ABORT;
     }
 
     FIXME("Unsupported button part %d.\n", part_id);
+    return E_NOTIMPL;
 }
 
 static HRESULT get_part_size(uxgtk_theme_t *theme, int part_id, int state_id,

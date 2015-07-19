@@ -24,6 +24,7 @@
 #include <stdlib.h>
 
 #include "vsstyle.h"
+#include "winerror.h"
 
 #include "wine/debug.h"
 
@@ -37,8 +38,8 @@ typedef struct _toolbar_theme
     GtkWidget *separator;
 } toolbar_theme_t;
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height);
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
 
 static const uxgtk_theme_vtable_t toolbar_vtable = {
@@ -69,7 +70,7 @@ static GtkStateFlags get_state_flags(int state_id)
     return GTK_STATE_FLAG_NORMAL;
 }
 
-static void draw_button(toolbar_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
+static HRESULT draw_button(toolbar_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
     GtkStyleContext *context;
     GtkStateFlags state = get_state_flags(state_id);
@@ -86,9 +87,12 @@ static void draw_button(toolbar_theme_t *theme, cairo_t *cr, int state_id, int w
     pgtk_render_frame(context, cr, 0, 0, width, height);
 
     pgtk_style_context_restore(context);
+
+    return S_OK;
 }
 
-static void draw_separator(toolbar_theme_t *theme, cairo_t *cr, int part_id, int width, int height)
+static HRESULT draw_separator(toolbar_theme_t *theme, cairo_t *cr, int part_id,
+                              int width, int height)
 {
     int x1, x2, y1, y2;
     GtkStyleContext *context;
@@ -111,26 +115,27 @@ static void draw_separator(toolbar_theme_t *theme, cairo_t *cr, int part_id, int
     }
 
     pgtk_render_line(context, cr, x1, y1, x2, y2);
+
+    return S_OK;
 }
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height)
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height)
 {
     toolbar_theme_t *toolbar_theme = (toolbar_theme_t *)theme;
 
     switch (part_id)
     {
         case TP_BUTTON:
-            draw_button(toolbar_theme, cr, state_id, width, height);
-            return;
+            return draw_button(toolbar_theme, cr, state_id, width, height);
 
         case TP_SEPARATOR:
         case TP_SEPARATORVERT:
-            draw_separator(toolbar_theme, cr, part_id, width, height);
-            return;
+            return draw_separator(toolbar_theme, cr, part_id, width, height);
     }
 
     FIXME("Unsupported toolbar part %d.\n", part_id);
+    return E_NOTIMPL;
 }
 
 static BOOL is_part_defined(int part_id, int state_id)

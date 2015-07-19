@@ -24,6 +24,7 @@
 #include <stdlib.h>
 
 #include "vsstyle.h"
+#include "winerror.h"
 
 #include "wine/debug.h"
 
@@ -36,8 +37,8 @@ typedef struct _rebar_theme
     GtkWidget *toolbar;
 } rebar_theme_t;
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height);
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
 
 static const uxgtk_theme_vtable_t rebar_vtable = {
@@ -47,8 +48,8 @@ static const uxgtk_theme_vtable_t rebar_vtable = {
     is_part_defined
 };
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height)
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height)
 {
     rebar_theme_t *rebar_theme = (rebar_theme_t *)theme;
 
@@ -61,11 +62,12 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
         {
             GtkStyleContext *context = pgtk_widget_get_style_context(rebar_theme->toolbar);
             pgtk_render_background(context, cr, 0, 0, width, height);
-            return;
+            return S_OK;
         }
     }
 
     FIXME("Unsupported rebar part %d.\n", part_id);
+    return E_NOTIMPL;
 }
 
 static BOOL is_part_defined(int part_id, int state_id)

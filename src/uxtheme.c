@@ -934,6 +934,7 @@ HRESULT WINAPI DrawThemeBackground(HTHEME htheme, HDC hdc, int part_id, int stat
 HRESULT WINAPI DrawThemeBackgroundEx(HTHEME htheme, HDC hdc, int part_id, int state_id,
                                      LPCRECT rect, const DTBGOPTS *options)
 {
+    HRESULT hr;
     cairo_t *cr;
     cairo_surface_t *surface;
     int x, y, width, height;
@@ -956,17 +957,22 @@ HRESULT WINAPI DrawThemeBackgroundEx(HTHEME htheme, HDC hdc, int part_id, int st
     surface = pcairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
     cr = pcairo_create(surface);
 
-    theme->vtable->draw_background(theme, cr, part_id, state_id, width, height);
+    hr = theme->vtable->draw_background(theme, cr, part_id, state_id, width, height);
+
+    if (FAILED(hr))
+        goto free_cairo;
 
     x = rect->left;
     y = rect->top;
 
     paint_cairo_surface(surface, hdc, x, y, width, height);
 
+free_cairo:
+
     pcairo_destroy(cr);
     pcairo_surface_destroy(surface);
 
-    return S_OK;
+    return hr;
 }
 
 HRESULT WINAPI DrawThemeEdge(HTHEME htheme, HDC hdc, int part_id, int state_id,

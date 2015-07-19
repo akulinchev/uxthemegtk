@@ -40,8 +40,8 @@ typedef struct _edit_theme
 
 static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
                          int prop_id, GdkRGBA *rgba);
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height);
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
 
 static const uxgtk_theme_vtable_t edit_vtable = {
@@ -146,7 +146,7 @@ static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
     return E_NOTIMPL;
 }
 
-static void draw_text(edit_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
+static HRESULT draw_text(edit_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
     GtkStyleContext *context;
     GtkStateFlags state = get_text_state_flags(state_id);
@@ -163,21 +163,23 @@ static void draw_text(edit_theme_t *theme, cairo_t *cr, int state_id, int width,
     pgtk_render_frame(context, cr, 0, 0, width, height);
 
     pgtk_style_context_restore(context);
+
+    return S_OK;
 }
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height)
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height)
 {
     edit_theme_t *edit_theme = (edit_theme_t *)theme;
 
     switch (part_id)
     {
         case EP_EDITTEXT:
-            draw_text(edit_theme, cr, state_id, width, height);
-            return;
+            return draw_text(edit_theme, cr, state_id, width, height);
     }
 
     FIXME("Unsupported edit part %d.\n", part_id);
+    return E_NOTIMPL;
 }
 
 static BOOL is_part_defined(int part_id, int state_id)

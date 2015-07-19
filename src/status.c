@@ -38,8 +38,8 @@ typedef struct _status_theme
     int grip_height;
 } status_theme_t;
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height);
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height);
 static HRESULT get_part_size(uxgtk_theme_t *theme, int part_id, int state_id,
                              RECT *rect, SIZE *size);
 static BOOL is_part_defined(int part_id, int state_id);
@@ -51,7 +51,7 @@ static const uxgtk_theme_vtable_t status_vtable = {
     is_part_defined
 };
 
-static void draw_pane(uxgtk_theme_t *theme, cairo_t *cr, int width, int height)
+static HRESULT draw_pane(uxgtk_theme_t *theme, cairo_t *cr, int width, int height)
 {
     GtkStyleContext *context;
 
@@ -61,9 +61,11 @@ static void draw_pane(uxgtk_theme_t *theme, cairo_t *cr, int width, int height)
 
     pgtk_style_context_add_class(context, GTK_STYLE_CLASS_BACKGROUND);
     pgtk_render_background(context, cr, 0, 0, width, height);
+
+    return S_OK;
 }
 
-static void draw_gripper(uxgtk_theme_t *theme, cairo_t *cr, int width, int height)
+static HRESULT draw_gripper(uxgtk_theme_t *theme, cairo_t *cr, int width, int height)
 {
     GtkStyleContext *context;
 
@@ -79,25 +81,26 @@ static void draw_gripper(uxgtk_theme_t *theme, cairo_t *cr, int width, int heigh
     pgtk_render_handle(context, cr, 0, 0, width, height);
 
     pgtk_style_context_restore(context);
+
+    return S_OK;
 }
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height)
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height)
 {
     switch (part_id)
     {
         case 0:
         case SP_PANE:
         case SP_GRIPPERPANE:
-            draw_pane(theme, cr, width, height);
-            return;
+            return draw_pane(theme, cr, width, height);
 
         case SP_GRIPPER:
-            draw_gripper(theme, cr, width, height);
-            return;
+            return draw_gripper(theme, cr, width, height);
     }
 
     ERR("Unknown status part %d.\n", part_id);
+    return E_FAIL;
 }
 
 static HRESULT get_part_size(uxgtk_theme_t *theme, int part_id, int state_id,

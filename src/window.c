@@ -38,8 +38,8 @@ typedef struct _window_theme
 
 static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
                          int prop_id, GdkRGBA *rgba);
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height);
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
 
 static const uxgtk_theme_vtable_t window_vtable = {
@@ -116,7 +116,7 @@ static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
     return S_OK;
 }
 
-static void draw_dialog(uxgtk_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
+static HRESULT draw_dialog(uxgtk_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
     GtkStyleContext *context;
 
@@ -125,19 +125,21 @@ static void draw_dialog(uxgtk_theme_t *theme, cairo_t *cr, int state_id, int wid
     context = pgtk_widget_get_style_context(theme->window);
 
     pgtk_render_background(context, cr, 0, 0, width, height);
+
+    return S_OK;
 }
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height)
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height)
 {
     switch (part_id)
     {
         case WP_DIALOG:
-            draw_dialog(theme, cr, state_id, width, height);
-            return;
+            return draw_dialog(theme, cr, state_id, width, height);
     }
 
     FIXME("Unsupported window part %d.\n", part_id);
+    return E_NOTIMPL;
 }
 
 static BOOL is_part_defined(int part_id, int state_id)

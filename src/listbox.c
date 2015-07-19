@@ -24,6 +24,7 @@
 #include <stdlib.h>
 
 #include "vsstyle.h"
+#include "winerror.h"
 
 #include "wine/debug.h"
 
@@ -36,8 +37,8 @@ typedef struct _listbox_theme
     GtkWidget *scrolled_window;
 } listbox_theme_t;
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height);
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
 
 static const uxgtk_theme_vtable_t listbox_vtable = {
@@ -47,7 +48,7 @@ static const uxgtk_theme_vtable_t listbox_vtable = {
     is_part_defined
 };
 
-static void draw_border(listbox_theme_t *theme, cairo_t *cr, int width, int height)
+static HRESULT draw_border(listbox_theme_t *theme, cairo_t *cr, int width, int height)
 {
     GtkStyleContext *context;
 
@@ -64,10 +65,12 @@ static void draw_border(listbox_theme_t *theme, cairo_t *cr, int width, int heig
     pgtk_render_frame(context, cr, 0, 0, width, height);
 
     pgtk_style_context_restore(context);
+
+    return S_OK;
 }
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height)
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height)
 {
     listbox_theme_t *listbox_theme = (listbox_theme_t *)theme;
 
@@ -78,11 +81,11 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
         case LBCP_BORDER_HVSCROLL:
         case LBCP_BORDER_NOSCROLL:
         case LBCP_BORDER_VSCROLL:
-            draw_border(listbox_theme, cr, width, height);
-            return;
+            return draw_border(listbox_theme, cr, width, height);
     }
 
     FIXME("Unsupported listbox part %d.\n", part_id);
+    return E_NOTIMPL;
 }
 
 static BOOL is_part_defined(int part_id, int state_id)

@@ -24,6 +24,7 @@
 #include <stdlib.h>
 
 #include "vsstyle.h"
+#include "winerror.h"
 
 #include "wine/debug.h"
 
@@ -36,8 +37,8 @@ typedef struct _header_theme
     GtkWidget *treeview;
 } header_theme_t;
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height);
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
 
 static const uxgtk_theme_vtable_t header_vtable = {
@@ -47,7 +48,7 @@ static const uxgtk_theme_vtable_t header_vtable = {
     is_part_defined
 };
 
-static void draw_item(header_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
+static HRESULT draw_item(header_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
     GtkWidget *widget;
     GtkStyleContext *context;
@@ -72,21 +73,23 @@ static void draw_item(header_theme_t *theme, cairo_t *cr, int state_id, int widt
     pgtk_render_frame(context, cr, 0, 0, width, height);
 
     pgtk_style_context_restore(context);
+
+    return S_OK;
 }
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height)
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height)
 {
     header_theme_t *header_theme = (header_theme_t *)theme;
 
     switch (part_id)
     {
         case HP_HEADERITEM:
-            draw_item(header_theme, cr, state_id, width, height);
-            return;
+            return draw_item(header_theme, cr, state_id, width, height);
     }
 
     FIXME("Unsupported header part %d.\n", part_id);
+    return E_NOTIMPL;
 }
 
 static BOOL is_part_defined(int part_id, int state_id)

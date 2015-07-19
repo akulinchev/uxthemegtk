@@ -24,6 +24,7 @@
 #include <stdlib.h>
 
 #include "vsstyle.h"
+#include "winerror.h"
 
 #include "wine/debug.h"
 
@@ -42,8 +43,8 @@ typedef struct _combobox_theme
     GtkWidget *arrow;
 } combobox_theme_t;
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height);
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
 
 static const uxgtk_theme_vtable_t combobox_vtable = {
@@ -103,7 +104,7 @@ static void iter_callback(GtkWidget *widget, gpointer data)
         ((combobox_theme_t *)data)->button = widget;
 }
 
-static void draw_border(combobox_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
+static HRESULT draw_border(combobox_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
     GtkStyleContext *context;
     GtkStateFlags state = get_border_state_flags(state_id);
@@ -120,10 +121,12 @@ static void draw_border(combobox_theme_t *theme, cairo_t *cr, int state_id, int 
     pgtk_render_frame(context, cr, 0, 0, width, height);
 
     pgtk_style_context_restore(context);
+
+    return S_OK;
 }
 
-static void draw_button(combobox_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                        int width, int height)
+static HRESULT draw_button(combobox_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                           int width, int height)
 {
     int arrow_x, arrow_y, arrow_width;
     GtkStyleContext *arrow_context, *button_context;
@@ -164,10 +167,12 @@ static void draw_button(combobox_theme_t *theme, cairo_t *cr, int part_id, int s
     pgtk_render_arrow(arrow_context, cr, G_PI, arrow_x, arrow_y, arrow_width);
 
     pgtk_style_context_restore(arrow_context);
+
+    return S_OK;
 }
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height)
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height)
 {
     combobox_theme_t *combobox_theme = (combobox_theme_t *)theme;
 
@@ -175,17 +180,16 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
     {
         case 0:
         case CP_BORDER:
-            draw_border(combobox_theme, cr, state_id, width, height);
-            return;
+            return draw_border(combobox_theme, cr, state_id, width, height);
 
         case CP_DROPDOWNBUTTON:
         case CP_DROPDOWNBUTTONLEFT:
         case CP_DROPDOWNBUTTONRIGHT:
-            draw_button(combobox_theme, cr, part_id, state_id, width, height);
-            return;
+            return draw_button(combobox_theme, cr, part_id, state_id, width, height);
     }
 
     FIXME("Unsupported combobox part %d.\n", part_id);
+    return E_NOTIMPL;
 }
 
 static BOOL is_part_defined(int part_id, int state_id)

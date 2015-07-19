@@ -24,6 +24,7 @@
 #include <stdlib.h>
 
 #include "vsstyle.h"
+#include "winerror.h"
 
 #include "wine/debug.h"
 
@@ -38,8 +39,8 @@ typedef struct _tab_theme
     GtkWidget *notebook;
 } tab_theme_t;
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height);
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
 
 static const uxgtk_theme_vtable_t tab_vtable = {
@@ -49,8 +50,8 @@ static const uxgtk_theme_vtable_t tab_vtable = {
     is_part_defined
 };
 
-static void draw_tab_item(tab_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                          int width, int height)
+static HRESULT draw_tab_item(tab_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                             int width, int height)
 {
     int x = 0, new_width = width, new_height = height;
     GtkRegionFlags region = 0;
@@ -91,9 +92,11 @@ static void draw_tab_item(tab_theme_t *theme, cairo_t *cr, int part_id, int stat
     pgtk_render_frame(context, cr, x, 0, new_width, new_height);
 
     pgtk_style_context_restore(context);
+
+    return S_OK;
 }
 
-static void draw_tab_pane(tab_theme_t *theme, cairo_t *cr, int width, int height)
+static HRESULT draw_tab_pane(tab_theme_t *theme, cairo_t *cr, int width, int height)
 {
     GtkStyleContext *context;
 
@@ -110,9 +113,11 @@ static void draw_tab_pane(tab_theme_t *theme, cairo_t *cr, int width, int height
     pgtk_render_frame(context, cr, 0, 0, width, height);
 
     pgtk_style_context_restore(context);
+
+    return S_OK;
 }
 
-static void draw_tab_body(tab_theme_t *theme, cairo_t *cr, int width, int height)
+static HRESULT draw_tab_body(tab_theme_t *theme, cairo_t *cr, int width, int height)
 {
     GtkStyleContext *context;
 
@@ -122,10 +127,12 @@ static void draw_tab_body(tab_theme_t *theme, cairo_t *cr, int width, int height
 
     /* Some borders are already drawned by draw_tab_pane */
     pgtk_render_background(context, cr, -4, -4, width + 4, height + 4);
+
+    return S_OK;
 }
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height)
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height)
 {
     tab_theme_t *tab_theme = (tab_theme_t *)theme;
     GtkStyleContext *context;
@@ -146,20 +153,18 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
         case TABP_TOPTABITEMLEFTEDGE:
         case TABP_TOPTABITEMRIGHTEDGE:
         case TABP_TOPTABITEMBOTHEDGE:
-            draw_tab_item(tab_theme, cr, part_id, state_id, width, height);
-            return;
+            return draw_tab_item(tab_theme, cr, part_id, state_id, width, height);
 
         case TABP_PANE:
-            draw_tab_pane(tab_theme, cr, width, height);
-            return;
+            return draw_tab_pane(tab_theme, cr, width, height);
 
         case TABP_BODY:
         case TABP_AEROWIZARDBODY:
-            draw_tab_body(tab_theme, cr, width, height);
-            return;
+            return draw_tab_body(tab_theme, cr, width, height);
     }
 
     ERR("Unknown tab part %d.\n", part_id);
+    return E_FAIL;
 }
 
 static BOOL is_part_defined(int part_id, int state_id)

@@ -24,6 +24,7 @@
 #include <stdlib.h>
 
 #include "vsstyle.h"
+#include "winerror.h"
 
 #include "wine/debug.h"
 
@@ -39,8 +40,8 @@ typedef struct _trackbar_theme
     GtkWidget *scale;
 } trackbar_theme_t;
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height);
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height);
 static BOOL is_part_defined(int part_id, int state_id);
 
 static const uxgtk_theme_vtable_t trackbar_vtable = {
@@ -50,7 +51,7 @@ static const uxgtk_theme_vtable_t trackbar_vtable = {
     is_part_defined
 };
 
-static void draw_track(trackbar_theme_t *theme, cairo_t *cr, int part_id, int width, int height)
+static HRESULT draw_track(trackbar_theme_t *theme, cairo_t *cr, int part_id, int width, int height)
 {
     int x1, x2, y1, y2;
     GtkStyleContext *context;
@@ -79,9 +80,11 @@ static void draw_track(trackbar_theme_t *theme, cairo_t *cr, int part_id, int wi
     pgtk_render_line(context, cr, x1, y1, x2, y2);
 
     pgtk_style_context_restore(context);
+
+    return S_OK;
 }
 
-static void draw_thumb(trackbar_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
+static HRESULT draw_thumb(trackbar_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
     GtkStyleContext *context = pgtk_widget_get_style_context(theme->scale);
     GtkStateFlags state = GTK_STATE_FLAG_NORMAL;
@@ -112,10 +115,12 @@ static void draw_thumb(trackbar_theme_t *theme, cairo_t *cr, int state_id, int w
                       GTK_ORIENTATION_HORIZONTAL);
 
     pgtk_style_context_restore(context);
+
+    return S_OK;
 }
 
-static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
-                            int width, int height)
+static HRESULT draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int state_id,
+                               int width, int height)
 {
     trackbar_theme_t *trackbar_theme = (trackbar_theme_t *)theme;
 
@@ -127,16 +132,15 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
         case TKP_THUMBVERT:
         case TKP_THUMBLEFT:
         case TKP_THUMBRIGHT:
-            draw_thumb(trackbar_theme, cr, state_id, width, height);
-            return;
+            return draw_thumb(trackbar_theme, cr, state_id, width, height);
 
         case TKP_TRACK:
         case TKP_TRACKVERT:
-            draw_track(trackbar_theme, cr, part_id, width, height);
-            return;
+            return draw_track(trackbar_theme, cr, part_id, width, height);
     }
 
     FIXME("Unsupported trackbar part %d.\n", part_id);
+    return E_NOTIMPL;
 }
 
 static BOOL is_part_defined(int part_id, int state_id)
