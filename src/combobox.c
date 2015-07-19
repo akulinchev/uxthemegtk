@@ -20,6 +20,7 @@
 
 #include "uxthemegtk.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "vsstyle.h"
@@ -96,14 +97,20 @@ static GtkStateFlags get_dropdown_button_state_flags(int state_id)
 
 static void iter_callback(GtkWidget *widget, gpointer data)
 {
+    assert(data != NULL);
+
     if (pg_type_check_instance_is_a((GTypeInstance *)widget, pgtk_toggle_button_get_type()))
         ((combobox_theme_t *)data)->button = widget;
 }
 
 static void draw_border(combobox_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
+    GtkStyleContext *context;
     GtkStateFlags state = get_border_state_flags(state_id);
-    GtkStyleContext *context = pgtk_widget_get_style_context(theme->entry);
+
+    assert(theme != NULL);
+
+    context = pgtk_widget_get_style_context(theme->entry);
 
     pgtk_style_context_save(context);
 
@@ -119,9 +126,13 @@ static void draw_button(combobox_theme_t *theme, cairo_t *cr, int part_id, int s
                         int width, int height)
 {
     int arrow_x, arrow_y, arrow_width;
+    GtkStyleContext *arrow_context, *button_context;
     GtkStateFlags state = get_dropdown_button_state_flags(state_id);
-    GtkStyleContext *arrow_context = pgtk_widget_get_style_context(theme->arrow);
-    GtkStyleContext *button_context = pgtk_widget_get_style_context(theme->button);
+
+    assert(theme != NULL);
+
+    arrow_context = pgtk_widget_get_style_context(theme->arrow);
+    button_context = pgtk_widget_get_style_context(theme->button);
 
     pgtk_style_context_save(button_context);
 

@@ -20,6 +20,7 @@
 
 #include "uxthemegtk.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "vsstyle.h"
@@ -52,8 +53,12 @@ static void draw_tab_item(tab_theme_t *theme, cairo_t *cr, int part_id, int stat
                           int width, int height)
 {
     int x = 0, new_width = width, new_height = height;
-    GtkStyleContext *context = pgtk_widget_get_style_context(theme->notebook);
     GtkRegionFlags region = 0;
+    GtkStyleContext *context;
+
+    assert(theme != NULL);
+
+    context = pgtk_widget_get_style_context(theme->notebook);
 
     pgtk_style_context_save(context);
 
@@ -90,7 +95,11 @@ static void draw_tab_item(tab_theme_t *theme, cairo_t *cr, int part_id, int stat
 
 static void draw_tab_pane(tab_theme_t *theme, cairo_t *cr, int width, int height)
 {
-    GtkStyleContext *context = pgtk_widget_get_style_context(theme->notebook);
+    GtkStyleContext *context;
+
+    assert(theme != NULL);
+
+    context = pgtk_widget_get_style_context(theme->notebook);
 
     pgtk_style_context_save(context);
 
@@ -105,7 +114,11 @@ static void draw_tab_pane(tab_theme_t *theme, cairo_t *cr, int width, int height
 
 static void draw_tab_body(tab_theme_t *theme, cairo_t *cr, int width, int height)
 {
-    GtkStyleContext *context = pgtk_widget_get_style_context(theme->notebook);
+    GtkStyleContext *context;
+
+    assert(theme != NULL);
+
+    context = pgtk_widget_get_style_context(theme->notebook);
 
     /* Some borders are already drawned by draw_tab_pane */
     pgtk_render_background(context, cr, -4, -4, width + 4, height + 4);
@@ -116,6 +129,8 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
 {
     tab_theme_t *tab_theme = (tab_theme_t *)theme;
     GtkStyleContext *context;
+
+    assert(theme != NULL);
 
     /* Draw a dialog background to fix some themes like Ambiance */
     context = pgtk_widget_get_style_context(theme->window);

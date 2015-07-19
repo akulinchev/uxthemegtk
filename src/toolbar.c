@@ -20,6 +20,7 @@
 
 #include "uxthemegtk.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "vsstyle.h"
@@ -70,8 +71,12 @@ static GtkStateFlags get_state_flags(int state_id)
 
 static void draw_button(toolbar_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
+    GtkStyleContext *context;
     GtkStateFlags state = get_state_flags(state_id);
-    GtkStyleContext *context = pgtk_widget_get_style_context(theme->button);
+
+    assert(theme != NULL);
+
+    context = pgtk_widget_get_style_context(theme->button);
 
     pgtk_style_context_save(context);
 
@@ -86,7 +91,11 @@ static void draw_button(toolbar_theme_t *theme, cairo_t *cr, int state_id, int w
 static void draw_separator(toolbar_theme_t *theme, cairo_t *cr, int part_id, int width, int height)
 {
     int x1, x2, y1, y2;
-    GtkStyleContext *context = pgtk_widget_get_style_context(theme->separator);
+    GtkStyleContext *context;
+
+    assert(theme != NULL);
+
+    context = pgtk_widget_get_style_context(theme->separator);
 
     if (part_id == TP_SEPARATOR) /* TP_SEPARATORVERT ? */
     {

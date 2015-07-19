@@ -20,6 +20,7 @@
 
 #include "uxthemegtk.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "vsstyle.h"
@@ -53,6 +54,8 @@ static HRESULT get_fill_color(uxgtk_theme_t *theme, int part_id, int state_id, G
     GtkStateFlags state;
     GtkStyleContext *context;
 
+    assert(theme != NULL);
+
     switch (part_id)
     {
         case WP_DIALOG:
@@ -74,6 +77,8 @@ static HRESULT get_text_color(uxgtk_theme_t *theme, int part_id, int state_id, G
 {
     GtkStateFlags state;
     GtkStyleContext *context;
+
+    assert(theme != NULL);
 
     switch (part_id)
     {
@@ -113,7 +118,11 @@ static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
 
 static void draw_dialog(uxgtk_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
-    GtkStyleContext *context = pgtk_widget_get_style_context(theme->window);
+    GtkStyleContext *context;
+
+    assert(theme != NULL);
+
+    context = pgtk_widget_get_style_context(theme->window);
 
     pgtk_render_background(context, cr, 0, 0, width, height);
 }

@@ -20,6 +20,7 @@
 
 #include "uxthemegtk.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "vsstyle.h"
@@ -48,7 +49,11 @@ static const uxgtk_theme_vtable_t listbox_vtable = {
 
 static void draw_border(listbox_theme_t *theme, cairo_t *cr, int width, int height)
 {
-    GtkStyleContext *context = pgtk_widget_get_style_context(theme->scrolled_window);
+    GtkStyleContext *context;
+
+    assert(theme != NULL);
+
+    context = pgtk_widget_get_style_context(theme->scrolled_window);
 
     pgtk_style_context_save(context);
 

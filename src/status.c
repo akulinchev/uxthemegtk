@@ -20,6 +20,7 @@
 
 #include "uxthemegtk.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "vsstyle.h"
@@ -52,7 +53,11 @@ static const uxgtk_theme_vtable_t status_vtable = {
 
 static void draw_pane(uxgtk_theme_t *theme, cairo_t *cr, int width, int height)
 {
-    GtkStyleContext *context = pgtk_widget_get_style_context(theme->window);
+    GtkStyleContext *context;
+
+    assert(theme != NULL);
+
+    context = pgtk_widget_get_style_context(theme->window);
 
     pgtk_style_context_add_class(context, GTK_STYLE_CLASS_BACKGROUND);
     pgtk_render_background(context, cr, 0, 0, width, height);
@@ -60,7 +65,11 @@ static void draw_pane(uxgtk_theme_t *theme, cairo_t *cr, int width, int height)
 
 static void draw_gripper(uxgtk_theme_t *theme, cairo_t *cr, int width, int height)
 {
-    GtkStyleContext *context = pgtk_widget_get_style_context(theme->window);
+    GtkStyleContext *context;
+
+    assert(theme != NULL);
+
+    context = pgtk_widget_get_style_context(theme->window);
 
     pgtk_style_context_save(context);
 
@@ -95,6 +104,9 @@ static HRESULT get_part_size(uxgtk_theme_t *theme, int part_id, int state_id,
                              RECT *rect, SIZE *size)
 {
     status_theme_t *status_theme = (status_theme_t *)theme;
+
+    assert(theme != NULL);
+    assert(size != NULL);
 
     switch (part_id)
     {

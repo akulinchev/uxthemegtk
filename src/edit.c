@@ -20,6 +20,7 @@
 
 #include "uxthemegtk.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "vsstyle.h"
@@ -82,6 +83,8 @@ static HRESULT get_fill_color(edit_theme_t *theme, int part_id, int state_id, Gd
     GtkStateFlags state;
     GtkStyleContext *context;
 
+    assert(theme != NULL);
+
     switch (part_id)
     {
         case EP_EDITTEXT:
@@ -105,6 +108,8 @@ static HRESULT get_text_color(edit_theme_t *theme, int part_id, int state_id, Gd
 {
     GtkStateFlags state;
     GtkStyleContext *context;
+
+    assert(theme != NULL);
 
     switch (part_id)
     {
@@ -143,8 +148,12 @@ static HRESULT get_color(uxgtk_theme_t *theme, int part_id, int state_id,
 
 static void draw_text(edit_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
+    GtkStyleContext *context;
     GtkStateFlags state = get_text_state_flags(state_id);
-    GtkStyleContext *context = pgtk_widget_get_style_context(theme->entry);
+
+    assert(theme != NULL);
+
+    context = pgtk_widget_get_style_context(theme->entry);
 
     pgtk_style_context_save(context);
 

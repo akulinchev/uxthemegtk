@@ -20,6 +20,7 @@
 
 #include "uxthemegtk.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "vsstyle.h"
@@ -50,6 +51,8 @@ static void draw_background(uxgtk_theme_t *theme, cairo_t *cr, int part_id, int 
                             int width, int height)
 {
     rebar_theme_t *rebar_theme = (rebar_theme_t *)theme;
+
+    assert(theme != NULL);
 
     switch (part_id)
     {

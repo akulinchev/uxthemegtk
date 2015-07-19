@@ -20,6 +20,7 @@
 
 #include "uxthemegtk.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "vsstyle.h"
@@ -48,10 +49,15 @@ static const uxgtk_theme_vtable_t header_vtable = {
 
 static void draw_item(header_theme_t *theme, cairo_t *cr, int state_id, int width, int height)
 {
-    GtkWidget *widget = pgtk_tree_view_column_get_button(
-        pgtk_tree_view_get_column((GtkTreeView *)theme->treeview, 1));
+    GtkWidget *widget;
+    GtkStyleContext *context;
     GtkStateFlags state = GTK_STATE_FLAG_NORMAL;
-    GtkStyleContext *context = pgtk_widget_get_style_context(widget);
+
+    assert(theme != NULL);
+
+    widget = pgtk_tree_view_column_get_button(
+        pgtk_tree_view_get_column((GtkTreeView *)theme->treeview, 1));
+    context = pgtk_widget_get_style_context(widget);
 
     if (state_id == HIS_HOT)
         state = GTK_STATE_FLAG_PRELIGHT;

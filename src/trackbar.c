@@ -20,6 +20,7 @@
 
 #include "uxthemegtk.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "vsstyle.h"
@@ -52,7 +53,11 @@ static const uxgtk_theme_vtable_t trackbar_vtable = {
 static void draw_track(trackbar_theme_t *theme, cairo_t *cr, int part_id, int width, int height)
 {
     int x1, x2, y1, y2;
-    GtkStyleContext *context = pgtk_widget_get_style_context(theme->scale);
+    GtkStyleContext *context;
+
+    assert(theme != NULL);
+
+    context = pgtk_widget_get_style_context(theme->scale);
 
     pgtk_style_context_save(context);
 

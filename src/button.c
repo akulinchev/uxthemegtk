@@ -20,6 +20,7 @@
 
 #include "uxthemegtk.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "vsstyle.h"
@@ -63,6 +64,8 @@ static const uxgtk_theme_vtable_t button_vtable = {
 
 static GtkWidget *get_button(button_theme_t *theme)
 {
+    assert(theme != NULL);
+
     if (theme->button == NULL)
     {
         theme->button = pgtk_button_new();
@@ -74,6 +77,8 @@ static GtkWidget *get_button(button_theme_t *theme)
 
 static GtkWidget *get_radio(button_theme_t *theme)
 {
+    assert(theme != NULL);
+
     if (theme->radio == NULL)
     {
         theme->radio = pgtk_radio_button_new(NULL);
@@ -85,6 +90,8 @@ static GtkWidget *get_radio(button_theme_t *theme)
 
 static GtkWidget *get_frame(button_theme_t *theme)
 {
+    assert(theme != NULL);
+
     if (theme->frame == NULL)
     {
         theme->frame = pgtk_frame_new(NULL);
@@ -96,6 +103,8 @@ static GtkWidget *get_frame(button_theme_t *theme)
 
 static GtkWidget *get_label(button_theme_t *theme)
 {
+    assert(theme != NULL);
+
     if (theme->label == NULL)
     {
         theme->label = pgtk_label_new(NULL);
@@ -107,6 +116,8 @@ static GtkWidget *get_label(button_theme_t *theme)
 
 static GtkWidget *get_button_label(button_theme_t *theme)
 {
+    assert(theme != NULL);
+
     if (theme->button_label == NULL)
     {
         GtkWidget *button = get_button(theme);
@@ -119,6 +130,8 @@ static GtkWidget *get_button_label(button_theme_t *theme)
 
 static GtkWidget *get_check_label(button_theme_t *theme)
 {
+    assert(theme != NULL);
+
     if (theme->check_label == NULL)
     {
         theme->check_label = pgtk_label_new(NULL);
@@ -130,6 +143,8 @@ static GtkWidget *get_check_label(button_theme_t *theme)
 
 static GtkWidget *get_radio_label(button_theme_t *theme)
 {
+    assert(theme != NULL);
+
     if (theme->radio_label == NULL)
     {
         GtkWidget *radio = get_radio(theme);
@@ -382,6 +397,8 @@ static void draw_radio(button_theme_t *theme, cairo_t *cr, int state_id)
     pgtk_style_context_set_state(context, state);
     pgtk_style_context_add_class(context, GTK_STYLE_CLASS_RADIO);
 
+    assert(theme != NULL);
+
     pgtk_render_option(context, cr, 0, 0, theme->indicator_size, theme->indicator_size);
 
     pgtk_style_context_restore(context);
@@ -389,8 +406,12 @@ static void draw_radio(button_theme_t *theme, cairo_t *cr, int state_id)
 
 static void draw_checkbox(button_theme_t *theme, cairo_t *cr, int state_id)
 {
+    GtkStyleContext *context;
     GtkStateFlags state = get_checkbox_state_flags(state_id);
-    GtkStyleContext *context = pgtk_widget_get_style_context(theme->check);
+
+    assert(theme != NULL);
+
+    context = pgtk_widget_get_style_context(theme->check);
 
     pgtk_style_context_save(context);
 
@@ -432,6 +453,9 @@ static HRESULT get_part_size(uxgtk_theme_t *theme, int part_id, int state_id,
                              RECT *rect, SIZE *size)
 {
     button_theme_t *button_theme = (button_theme_t *)theme;
+
+    assert(theme != NULL);
+    assert(size != NULL);
 
     switch (part_id)
     {

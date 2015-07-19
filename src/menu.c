@@ -20,6 +20,7 @@
 
 #include "uxthemegtk.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "vsstyle.h"
@@ -75,6 +76,8 @@ static HRESULT get_fill_color(menu_theme_t *theme, int part_id, int state_id, Gd
     GtkStateFlags state;
     GtkStyleContext *context;
 
+    assert(theme != NULL);
+
     switch (part_id)
     {
         case MENU_BARBACKGROUND:
@@ -106,6 +109,8 @@ static HRESULT get_text_color(menu_theme_t *theme, int part_id, int state_id, Gd
 {
     GtkStateFlags state;
     GtkStyleContext *context;
+
+    assert(theme != NULL);
 
     switch (part_id)
     {
